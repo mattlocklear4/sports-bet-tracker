@@ -70,7 +70,17 @@ body.auth-locked main > :not(.panel:first-of-type){display:none!important}body.a
  .bet-more[open] summary{width:max-content;margin-left:auto}
  .bet-mobile-item .tags{margin-top:9px}
 }
-</style></head><body class="auth-locked">
+@media(max-width:720px){
+ .bet-mobile-item{padding:12px 13px}
+ .bet-mobile-title{font-size:14px;margin-top:7px}
+ .bet-mobile-date{margin-top:3px}
+ .bet-leg-list{gap:5px;margin-top:7px}
+ .bet-leg{font-size:12.5px}
+ .bet-mobile-event{font-size:11px;margin-top:6px}
+ .bet-metrics{margin-top:9px;padding:9px}
+ .bet-mobile-footer{margin-top:8px}
+ .bet-mobile-footer .btn,.bet-more summary{padding:7px 10px}
+}</style></head><body class="auth-locked">
 <header><div><h1>🏆 Sports Bet Tracker</h1><div class="sub">V2.1 · Private account · Automatic cloud sync</div></div><div class="row"><button class="btn" id="chatgpt-import-btn">📋 Import from ChatGPT</button><button class="btn primary" id="add">+ Add Bet</button></div></header>
 <main><div class="actions"><button class="btn" id="export">Export CSV</button><button class="btn" id="backup">Backup JSON</button><button class="btn" id="restore">Import Backup</button><input type="file" id="backupfile" accept=".json,application/json" hidden><span class="hint">Signed-in changes automatically sync to the cloud.</span></div>
 <section class="panel"><div class="topline"><h2>Cloud Sync</h2><span class="hint" id="cloud-status">Loading authentication...</span></div><div class="actions" style="margin-top:12px;margin-bottom:0"><button class="btn primary" id="cloud-login">Email Login</button><button class="btn" id="cloud-logout" hidden>Sign Out</button><button class="btn" id="cloud-upload" disabled>Upload Local Bets</button><button class="btn" id="cloud-download" disabled>Download & Merge Cloud Bets</button></div><div class="hint" style="margin-top:10px">Sign in to access your dashboard. Signed-in bets sync automatically across devices. Use Backup JSON for an extra copy.</div></section><section class="cards" id="stats"></section>
@@ -113,8 +123,8 @@ function render(){updateOptions();const rows=filtered(),closed=rows.filter(settl
 function renderMobileHistory(rows){
  const sorted=rows.slice().sort((a,b)=>b.date.localeCompare(a.date));
  $('bets-mobile').innerHTML=sorted.length?sorted.map(b=>{
-  const isParlay=b.type==='Parlay'||/\\b(?:SGP|Parlay)\\b/i.test(b.selection);
-  const legs=isParlay?b.selection.replace(/^\\d+[- ]Leg\\s+(?:SGP|Parlay):?\\s*/i,'').split(/\\s+\\+\\s+(?=[A-Za-z])/):[];
+  const isParlay=b.type==='Parlay'||/\b(?:SGP|Parlay)\b/i.test(b.selection);
+  const legs=isParlay?b.selection.replace(/^\d+[- ]Leg\s+(?:SGP|Parlay):?\s*/i,'').split(/\s+\+\s+(?=[A-Za-z])/):[];
   const statusClass=b.status==='Win'?'win':b.status==='Loss'?'loss':'pending';
   const p=profit(b);
   const pnl=settled(b)?(p>0?'+':'')+money(p):'Open';
