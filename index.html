@@ -124,9 +124,17 @@ $('paste-check').onclick=()=>{
   const parsed=JSON.parse(raw),arr=Array.isArray(parsed)?parsed:parsed?.bets;
   if(!Array.isArray(arr)||arr.length<1||arr.length>500)throw Error('Expected a JSON array of 1–500 bets, or an object containing bets.');
   const all=arr.map(parseImported),seen=new Set(bets.map(pkey));
-  staged=all.filter(x=>{const k=pkey(x);if(seen.has(k))return false;seen.add(k);return true});
-  $('paste-summary').textContent=all.length+' provided; '+staged.length+' new; '+(all.length-staged.length)+' possible duplicates skipped. Verify all values.';
-  $('paste-preview').innerHTML='<div class="import-cards">'+staged.map((x,i)=>'<div class="import-card"><div class="topline"><span class="sub">#'+(i+1)+' · '+esc(x.date)+' · '+esc(x.book)+'</span><strong class="'+(x.status==='Win'?'positive':x.status==='Loss'?'negative':'')+'">'+esc(x.status)+'</strong></div><div style="margin-top:7px"><strong>'+esc(x.selection)+'</strong></div><div class="import-meta"><span>Odds '+esc(oddsText(x.odds))+'</span><span>Stake '+money(x.stake)+'</span><span>Return '+money(x.cashoutReturn)+'</span></div><div class="bet-mobile-sub">'+esc(x.event||x.sport)+'</div></div>').join('')+'</div>';
+  const reviewed=all.map((x,i)=>{const key=pkey(x),duplicate=seen.has(key);seen.add(key);return {bet:x,index:i+1,duplicate}});
+  staged=reviewed.filter(x=>!x.duplicate).map(x=>x.bet);
+  const duplicateCount=reviewed.length-staged.length;
+  $('paste-summary').textContent=staged.length
+    ?all.length+' provided · '+staged.length+' new · '+duplicateCount+' already imported. Review below.'
+    :all.length+' provided · all '+duplicateCount+' already imported. Nothing new to add.';
+  $('paste-preview').innerHTML='<div class="import-cards">'+reviewed.map(({bet:x,index,duplicate})=>
+    '<div class="import-card"'+(duplicate?' style="opacity:.72"':'')+'><div class="topline"><span class="sub">#'+index+' · '+esc(x.date)+' · '+esc(x.book)+'</span><strong class="'+(duplicate?'muted':x.status==='Win'?'positive':x.status==='Loss'?'negative':'')+'">'+(duplicate?'✓ Already imported':esc(x.status))+'</strong></div>'+
+    '<div style="margin-top:7px"><strong>'+esc(x.selection)+'</strong></div>'+
+    '<div class="import-meta"><span>Odds '+esc(oddsText(x.odds))+'</span><span>Stake '+money(x.stake)+'</span><span>Return '+money(x.cashoutReturn)+'</span><span>'+esc(x.status)+'</span></div>'+
+    '<div class="bet-mobile-sub">'+esc(x.event||x.sport)+'</div></div>').join('')+'</div>';
   $('paste-save').disabled=!staged.length;
  }catch(e){staged=[];$('paste-save').disabled=true;$('paste-summary').textContent='Cannot preview: '+e.message;$('paste-preview').innerHTML=''}
 };
