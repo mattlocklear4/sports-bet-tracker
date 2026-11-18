@@ -111,7 +111,7 @@
    const marketLine=(result.data.text||'').split(/\r?\n/).map(x=>x.trim()).find(x=>/greens in regulation|round score|birdies or better|bogey|winning score/i.test(x));
    if(marketLine&&headingSelection){
      const cleanMarket=marketLine.replace(/[|¦]+\s*$/,'').trim();
-     if(cleanMarket&&!/^(?:over|under)\b/i.test(cleanMarket))extracted.selection=cleanMarket+' — '+headingSelection;
+     if(cleanMarket&&!/^(?:over|under)\b/i.test(cleanMarket))extracted.selection=headingSelection+' — '+cleanMarket;
    }
    if(top.odds!==null)extracted.odds=top.odds;
    // Keep a concise diagnostic without appending pages of repeated OCR to notes.
