@@ -80,7 +80,7 @@
    }
    if(top.odds!==null)extracted.odds=top.odds;
    const isGIR=/greens in regulation/i.test(result.data.text||'');
-   if(isGIR&&/^\\s*(Over|Under)\\s+1[0-8]\\d\\s*$/i.test(extracted.selection||''))extracted.selection=extracted.selection.replace(/(1[0-8])(\\d)\\s*$/,'$1.$2');
+   if(isGIR&&/^\s*(Over|Under)\s+1[0-8]\d\s*$/i.test(extracted.selection||''))extracted.selection=extracted.selection.replace(/(1[0-8])(\d)\s*$/,'$1.$2');
    extracted.notes+='\nEnhanced top OCR: '+topText.slice(0,500);
    if(!extracted.raw.trim()){setStatus('No text recognized. Try a clearer screenshot or use Add Bet.');return}
    document.getElementById('add').click();
@@ -96,4 +96,4 @@
   }catch(err){setStatus('Could not scan screenshot: '+err.message+'. You can still enter the bet manually.')}
   finally{fileInput.value=''}
  });
-})()
+})();
