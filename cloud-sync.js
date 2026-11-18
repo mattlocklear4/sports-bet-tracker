@@ -60,54 +60,72 @@ document.getElementById('cloud-download').onclick=async()=>{
 // newer edits made on another device. Cloud remains authoritative for existing IDs
 // when this device first signs in.
 let baseline=new Map(bets.map(b=>[b.id,JSON.stringify(b)]));
-let dirty=new Set(),syncTimer=null,syncBusy=false,syncReady=false,activeUserId=null;
+let dirty=new Set(),deleting=new Set(),syncTimer=null,syncBusy=false,syncReady=false,activeUserId=null;
 let lastRefresh=0;
 const setBaseline=()=>{baseline=new Map(bets.map(b=>[b.id,JSON.stringify(b)]))};
 function recordLocalChanges(){
+ for(const id of baseline.keys())if(!bets.some(b=>b.id===id)){deleting.add(id);dirty.delete(id)}
  for(const b of bets)if(baseline.get(b.id)!==JSON.stringify(b))dirty.add(b.id);
  scheduleSync();
 }
 function scheduleSync(delay=900){if(!cloudUser||!syncReady)return;clearTimeout(syncTimer);syncTimer=setTimeout(()=>syncCycle().catch(e=>cloudMessage('Sync failed: '+e.message)),delay)}
 async function pullCloud(){
  if(!cloudUser)return;
- const remote=await getRemote(),merged=new Map(bets.map(b=>[b.id,b]));
- for(const b of remote)if(!dirty.has(b.id))merged.set(b.id,b);
+ const remote=await getRemote(),merged=new Map();
+ for(const b of remote)if(!deleting.has(b.id))merged.set(b.id,b);
+ for(const b of bets)if(dirty.has(b.id)&&!deleting.has(b.id))merged.set(b.id,b);
  const old=bets;bets=[...merged.values()];
  setBaseline();if(!save()){bets=old;throw Error('Could not save downloaded bets')}
  render();setBaseline();lastRefresh=Date.now();
  cloudMessage('Cloud synced · '+remote.length+' cloud bets');
 }
+async function deleteRemote(ids){
+ if(!cloudUser||!ids.length)return;
+ // Remove child references before deleting the parent bet records.
+ const {error:linksError}=await supa.from('bet_tags').delete().eq('user_id',cloudUser.id).in('bet_id',ids);
+ if(linksError)throw linksError;
+ const {error:legsError}=await supa.from('bet_legs').delete().eq('user_id',cloudUser.id).in('bet_id',ids);
+ if(legsError)throw legsError;
+ const {error:shotsError}=await supa.from('bet_screenshots').delete().eq('user_id',cloudUser.id).in('bet_id',ids);
+ if(shotsError)throw shotsError;
+ const {data,error}=await supa.from('bets').delete().eq('user_id',cloudUser.id).in('id',ids).select('id');
+ if(error)throw error;
+ if((data||[]).length!==ids.length)throw Error('Cloud did not confirm all deletions. Please retry.');
+}
 async function syncCycle(forcePull=false){
  if(!cloudUser||syncBusy||!syncReady)return;
  syncBusy=true;
  try{
+  if(deleting.size){
+   const ids=[...deleting];cloudMessage('Deleting bets from cloud...');await deleteRemote(ids);
+   for(const id of ids)deleting.delete(id);
+  }
   if(dirty.size){
    const sending=new Set(dirty);cloudMessage('Saving changes to cloud...');
    await uploadLocal(sending);
    for(const id of sending)dirty.delete(id);
   }
   if(forcePull||Date.now()-lastRefresh>12000)await pullCloud();
- }finally{syncBusy=false;if(dirty.size)scheduleSync(1500)}
+ }finally{syncBusy=false;if(dirty.size||deleting.size)scheduleSync(1500)}
 }
 async function initializeCloud(){
  if(!cloudUser)return;
  const id=cloudUser.id;
- if(activeUserId!==id){activeUserId=id;syncReady=false;dirty.clear();setBaseline()}
+ if(activeUserId!==id){activeUserId=id;syncReady=false;dirty.clear();deleting.clear();setBaseline()}
  try{
   cloudMessage('Loading cloud bets...');
-  const remote=await getRemote(),remoteIds=new Set(remote.map(b=>b.id)),merged=new Map(bets.map(b=>[b.id,b]));
-  const localOnly=[...merged.keys()].filter(id=>!remoteIds.has(id));
-  for(const b of remote)merged.set(b.id,b);
+  const remote=await getRemote(),merged=new Map(remote.map(b=>[b.id,b]));
+  // The cloud is authoritative at login: stale browser copies of deleted bets
+  // must never be silently re-uploaded.
   const old=bets;bets=[...merged.values()];
   setBaseline();if(!save()){bets=old;throw Error('Could not save cloud data locally')}
   render();setBaseline();lastRefresh=Date.now();syncReady=true;
-  for(const id of localOnly)dirty.add(id);
   cloudMessage('Cloud synced · '+remote.length+' cloud bets');
-  if(dirty.size)scheduleSync(300);
+  if(dirty.size||deleting.size)scheduleSync(300);
  }catch(e){cloudMessage('Cloud load failed: '+e.message);syncReady=true}
 }
 window.addEventListener('tracker:local-saved',recordLocalChanges);
-supa.auth.onAuthStateChange(()=>{setTimeout(async()=>{await refreshAuth();if(cloudUser){if(!syncReady||activeUserId!==cloudUser.id)await initializeCloud();else scheduleSync(100)}else{syncReady=false;activeUserId=null;dirty.clear()}},0)});
+supa.auth.onAuthStateChange(()=>{setTimeout(async()=>{await refreshAuth();if(cloudUser){if(!syncReady||activeUserId!==cloudUser.id)await initializeCloud();else scheduleSync(100)}else{syncReady=false;activeUserId=null;dirty.clear();deleting.clear()}},0)});
 (async()=>{await refreshAuth();if(cloudUser)await initializeCloud()})();
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)scheduleSync(100)});
 window.addEventListener('focus',()=>scheduleSync(100));
