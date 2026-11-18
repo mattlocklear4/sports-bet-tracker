@@ -19,11 +19,13 @@
    };
    const stake=amountAfter('(?:wager(?:\\s*amount)?|stake|risk|bet\\s*amount|amount\\s*wagered)');
    const payout=amountAfter('(?:total\\s*payout|potential\\s*payout|to\\s*return)');
-   const oddsMatches=[...full.matchAll(/(?:^|\s)([+−–-]\s*\d{3,4})(?=\s|$|\))/g)];
+   const oddsMatches=[...full.matchAll(/(?:^|[\s|¦•·])([+−–-]\s*\d{3,4})(?=\s|$|[|¦•·)])/g)];
    const odds=oddsMatches.length?Number(oddsMatches[0][1].replace(/[−–]/g,'-').replace(/\s/g,'')):null;
    const sport=/\b(golf|pga|dp world|liv|winning score o\/u|rsm classic|masters|open championship|round score|r3 o\/u)\b/i.test(full)?'Golf':/\b(nfl|football)\b/i.test(full)?'NFL':/\b(nba|basketball)\b/i.test(full)?'NBA':/\b(mlb|baseball)\b/i.test(full)?'MLB':null;
    const candidate=lines.find(l=>/\b(over|under|moneyline|spread|to win|round score|birdies|bogeys)\b/i.test(l)&&l.length>5);
-   const selection=candidate?candidate.replace(/\s*(?:[|¦•·])?\s*[+−–-]\s*\d{3,4}\s*$/,'').trim():null;
+   const pickLine=lines.find(l=>/^\s*(?:over|under)\s*\d+(?:[.,]\d+)?\b/i.test(l));
+   const pickMatch=full.match(/\b(over|under)\s*(\d{1,3}(?:[.,]\d+)?)\b/i);
+   const selection=pickLine?pickLine.replace(/\s*(?:[|¦•·])?\s*[+−–-]\s*\d{3,4}\s*$/,'').trim():pickMatch?(pickMatch[1][0].toUpperCase()+pickMatch[1].slice(1).toLowerCase()+' '+pickMatch[2].replace(',','.')):candidate?candidate.replace(/\s*[+−–-]\s*\d{3,4}\s*$/,'').trim():null;
    const market=lines.find(l=>/winning score o\/u|round score|birdies or better|bogey|moneyline|spread/i.test(l));
    const eventLine=lines.find(l=>/\b(?:classic|championship|open|masters|invitational|tournament)\b/i.test(l)&&!/^receipt/i.test(l)) || lines.find(l=>/\s+v\s+.+\s+v\s+.+(?:\s*[-–]\s*R\d)?$/i.test(l));
    const event=eventLine?eventLine.replace(/\s*(?:[•·+|]|\s)\s*(?:mon|tue|wed|thu|fri|sat|sun)\b.*$/i,'').trim():null;
@@ -53,6 +55,7 @@
     const input=form.elements.namedItem(key);
     if(input&&(!input.options||[...input.options].some(o=>o.value===String(val))))input.value=String(val);
    }
+   if(extracted.odds===null){form.elements.odds.value='';form.elements.odds.placeholder='Odds not recognized — enter manually';}
    form.elements.notes.value=extracted.notes;
    setStatus('Text recognized. Review all fields in the Add Bet form; missing fields must be entered manually. The screenshot is not stored.');
   }catch(err){setStatus('Could not scan screenshot: '+err.message+'. You can still enter the bet manually.')}
