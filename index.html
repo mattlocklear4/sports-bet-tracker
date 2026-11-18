@@ -84,13 +84,24 @@ body.auth-locked main > :not(.panel:first-of-type){display:none!important}body.a
  .bet-mobile-footer{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
  .bet-mobile-footer .btn{min-width:0;width:100%;padding:9px 2px;font-size:11px;line-height:1.1;white-space:nowrap}
 }
+
+.multi-filter{position:relative;min-width:0}
+.multi-filter summary{list-style:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid #3b516d;border-radius:8px;background:#1b2d45;padding:10px 28px 10px 11px;font-size:13px;color:#dce8f6;position:relative}
+.multi-filter summary::-webkit-details-marker{display:none}
+.multi-filter summary:after{content:"⌄";position:absolute;right:10px}
+.multi-filter-menu{position:absolute;top:calc(100% + 4px);left:0;z-index:30;background:#14243a;border:1px solid #3b516d;border-radius:10px;padding:6px;min-width:210px;max-width:min(290px,calc(100vw - 40px));box-shadow:0 8px 24px #0008}
+.multi-filter-items{max-height:240px;overflow:auto}
+.multi-filter-option{display:flex;gap:9px;align-items:center;padding:9px 8px;font-size:13px;cursor:pointer;border-radius:6px;overflow-wrap:anywhere}
+.multi-filter-option:active{background:#29405d}
+.multi-filter-option input{width:17px;height:17px;flex-shrink:0;accent-color:#3981f5}
+@media(max-width:720px){.multi-filter summary{padding:10px 24px 10px 9px}.multi-filter-menu{min-width:190px}}
 </style></head><body class="auth-locked">
 <header><div><h1>🏆 Sports Bet Tracker</h1><div class="sub">V2.1 · Private account · Automatic cloud sync</div></div><div class="row"><button class="btn" id="chatgpt-import-btn">📋 Import from ChatGPT</button><button class="btn primary" id="add">+ Add Bet</button></div></header>
 <main><div class="actions"><button class="btn" id="export">Export CSV</button><button class="btn" id="backup">Backup JSON</button><button class="btn" id="restore">Import Backup</button><input type="file" id="backupfile" accept=".json,application/json" hidden><span class="hint">Signed-in changes automatically sync to the cloud.</span></div>
 <section class="panel"><div class="topline"><h2>Cloud Sync</h2><span class="hint" id="cloud-status">Loading authentication...</span></div><div class="actions" style="margin-top:12px;margin-bottom:0"><button class="btn primary" id="cloud-login">Email Login</button><button class="btn" id="cloud-logout" hidden>Sign Out</button><button class="btn" id="cloud-upload" disabled>Upload Local Bets</button><button class="btn" id="cloud-download" disabled>Download & Merge Cloud Bets</button></div><div class="hint" style="margin-top:10px">Sign in to access your dashboard. Signed-in bets sync automatically across devices. Use Backup JSON for an extra copy.</div></section><section class="cards" id="stats"></section>
 <div class="grid2"><section class="panel"><h2>Cumulative Profit / Loss</h2><div id="chart"></div></section><section class="panel"><h2>Results by Sport</h2><div id="sports"></div></section></div>
 <section class="panel"><div class="topline"><h2>Bet History</h2><span class="hint" id="count"></span></div>
-<div class="filters"><input id="search" placeholder="Search bets..."><select id="statusfilter"><option value="">All statuses</option><option>Pending</option><option>Win</option><option>Loss</option><option>Push</option><option>Void</option><option>Cashout</option></select><select id="sportfilter"><option value="">All sports</option></select><select id="bookfilter"><option value="">All sportsbooks</option></select><select id="tagfilter"><option value="">All tags</option><option value="__none">No tags</option></select><input id="from" type="date" title="From date"><input id="to" type="date" title="To date"><button class="btn small" id="clear">Clear filters</button></div>
+<div class="filters"><input id="search" placeholder="Search bets..."><select id="statusfilter"><option value="">All statuses</option><option>Pending</option><option>Win</option><option>Loss</option><option>Push</option><option>Void</option><option>Cashout</option></select><details class="multi-filter" id="sportfilter"><summary>All sports</summary><div class="multi-filter-menu"><div class="multi-filter-items"></div></div></details><select id="bookfilter"><option value="">All sportsbooks</option></select><details class="multi-filter" id="tagfilter"><summary>All tags</summary><div class="multi-filter-menu"><div class="multi-filter-items"></div></div></details><input id="from" type="date" title="From date"><input id="to" type="date" title="To date"><button class="btn small" id="clear">Clear filters</button></div>
 <div class="bet-mobile" id="bets-mobile"></div><div class="tablewrap history-table"><table><thead><tr><th>Date</th><th>Selection / Event</th><th>Type</th><th>Book</th><th>Odds</th><th>Stake</th><th>Status</th><th>P/L</th><th>Tags</th><th>Actions</th></tr></thead><tbody id="bets"></tbody></table></div></section>
 </main>
 <dialog id="editor" class="dialog"><form id="betform"><h2 id="editortitle">Add Bet</h2><div class="note hint">Enter a single, parlay, round robin, or future. For parlays and round robins, enter the full wager description and combined odds. More detailed leg tracking will follow.</div>
@@ -120,8 +131,46 @@ const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(bets));window.dispat
 const unique=arr=>[...new Set(arr.filter(Boolean))].sort((a,b)=>a.localeCompare(b));
 const option=(v,label)=>'<option value="'+esc(v)+'">'+esc(label||v)+'</option>';
 const download=(name,text,type)=>{const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
-function filtered(){return bets.filter(b=>{const q=$('search').value.toLowerCase();const tag=$('tagfilter').value;return (!q||[b.selection,b.event,b.sport,b.book,b.type,b.notes,...b.tags].join(' ').toLowerCase().includes(q))&&(!$('statusfilter').value||b.status===$('statusfilter').value)&&(!$('sportfilter').value||b.sport===$('sportfilter').value)&&(!$('bookfilter').value||b.book===$('bookfilter').value)&&(!tag||(tag==='__none'?b.tags.length===0:b.tags.includes(tag)))&&(!$('from').value||b.date>=$('from').value)&&(!$('to').value||b.date<=$('to').value)})}
-function updateOptions(){for(const [id,values] of [['sportfilter',unique(bets.map(b=>b.sport))],['bookfilter',unique(bets.map(b=>b.book))],['tagfilter',unique(bets.flatMap(b=>b.tags))]]){const el=$(id),old=el.value,first=id==='tagfilter'?'<option value="">All tags</option><option value="__none">No tags</option>':'<option value="">All '+(id==='sportfilter'?'sports':'sportsbooks')+'</option>';el.innerHTML=first+values.map(v=>option(v)).join('');el.value=[...el.options].some(o=>o.value===old)?old:''}}
+const multiSelections={sportfilter:new Set(),tagfilter:new Set()};
+function filtered(){return bets.filter(b=>{
+ const q=$('search').value.toLowerCase(),sports=multiSelections.sportfilter,tags=multiSelections.tagfilter;
+ return (!q||[b.selection,b.event,b.sport,b.book,b.type,b.notes,...b.tags].join(' ').toLowerCase().includes(q))&&
+ (!$('statusfilter').value||b.status===$('statusfilter').value)&&
+ (!sports.size||sports.has(b.sport))&&
+ (!$('bookfilter').value||b.book===$('bookfilter').value)&&
+ (!tags.size||[...tags].some(tag=>tag==='__none'?b.tags.length===0:b.tags.includes(tag)))&&
+ (!$('from').value||b.date>=$('from').value)&&(!$('to').value||b.date<=$('to').value)
+})}
+function updateMultiFilter(id,values){
+ const box=$(id),set=multiSelections[id],all=id==='sportfilter'?'sports':'tags';
+ const allowed=new Set(values);if(id==='tagfilter')allowed.add('__none');
+ for(const value of [...set])if(!allowed.has(value))set.delete(value);
+ const entries=id==='tagfilter'?[['__none','No tags'],...values.map(v=>[v,v])]:values.map(v=>[v,v]);
+ const container=box.querySelector('.multi-filter-items');
+ const signature=JSON.stringify(entries);
+ if(container.dataset.signature!==signature){
+  container.innerHTML=entries.map(([value,label])=>'<label class="multi-filter-option"><input type="checkbox" value="'+esc(value)+'"><span>'+esc(label)+'</span></label>').join('');
+  container.dataset.signature=signature;
+ }
+ container.querySelectorAll('input').forEach(input=>input.checked=set.has(input.value));
+ const summary=box.querySelector('summary');
+ summary.textContent=!set.size?'All '+all:set.size===1?([...set][0]==='__none'?'No tags':[...set][0]):set.size+' '+all+' selected';
+}
+function updateOptions(){
+ updateMultiFilter('sportfilter',unique(bets.map(b=>b.sport)));
+ updateMultiFilter('tagfilter',unique(bets.flatMap(b=>b.tags)));
+ const el=$('bookfilter'),old=el.value;
+ el.innerHTML='<option value="">All sportsbooks</option>'+unique(bets.map(b=>b.book)).map(v=>option(v)).join('');
+ el.value=[...el.options].some(o=>o.value===old)?old:'';
+}
+for(const id of ['sportfilter','tagfilter']){
+ $(id).querySelector('.multi-filter-items').addEventListener('change',e=>{
+  if(!e.target.matches('input[type="checkbox"]'))return;
+  const set=multiSelections[id];if(e.target.checked)set.add(e.target.value);else set.delete(e.target.value);
+  render();
+ });
+}
+document.addEventListener('click',e=>{for(const id of ['sportfilter','tagfilter'])if(!$(id).contains(e.target))$(id).open=false});
 function chart(rows){if(!rows.length)return '<div class="empty">Grade some bets to see your profit trend.</div>';let running=0;const points=rows.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(b=>({date:b.date,y:running+=profit(b)}));const vals=[0,...points.map(p=>p.y)],lo=Math.min(...vals),hi=Math.max(...vals),range=hi-lo||1;const coords=[{x:10,y:155},...points.map((p,i)=>({x:10+(i+1)*570/points.length,y:155-(p.y-lo)/range*130}))];const path=coords.map((p,i)=>(i?'L':'M')+p.x.toFixed(1)+' '+p.y.toFixed(1)).join(' ');return '<svg viewBox="0 0 600 180" class="chart" role="img" aria-label="Cumulative profit and loss line chart"><line x1="10" y1="'+(155-(0-lo)/range*130)+'" x2="580" y2="'+(155-(0-lo)/range*130)+'" stroke="#55677e" stroke-dasharray="4 4"/><path d="'+path+'" fill="none" stroke="#63b4ff" stroke-width="3"/><text x="10" y="175" fill="#a9bcd2" font-size="13">'+esc(points[0].date)+'</text><text x="480" y="175" fill="#a9bcd2" font-size="13">'+esc(points.at(-1).date)+'</text><text x="10" y="15" fill="#a9bcd2" font-size="13">'+esc(money(hi))+'</text></svg>'}
 function render(){updateOptions();const rows=filtered(),closed=rows.filter(settled),decided=rows.filter(b=>b.status==='Win'||b.status==='Loss'),wagered=closed.reduce((s,b)=>s+b.stake,0),pnl=closed.reduce((s,b)=>s+profit(b),0),wins=decided.filter(b=>b.status==='Win').length;const metrics=[['Net Profit / Loss',money(pnl),pnl>=0?'positive':'negative'],['ROI',wagered?(100*pnl/wagered).toFixed(2)+'%':'—',pnl>=0?'positive':'negative'],['Win Rate',decided.length?(100*wins/decided.length).toFixed(1)+'%':'—',''],['Total Wagered',money(wagered),''],['Pending Exposure',money(rows.filter(b=>b.status==='Pending').reduce((s,b)=>s+b.stake,0)),''],['Graded Bets',closed.length+' / '+rows.length,''],['Wins / Losses',wins+' / '+(decided.length-wins),''],['Average Odds',rows.length?(rows.reduce((s,b)=>s+b.odds,0)/rows.length).toFixed(0):'—','']];$('stats').innerHTML=metrics.map(m=>'<div class="card"><div class="muted">'+m[0]+'</div><div class="num '+m[2]+'">'+m[1]+'</div></div>').join('');$('count').textContent=rows.length+' bets';$('chart').innerHTML=chart(closed);const groups={};closed.forEach(b=>{groups[b.sport]=(groups[b.sport]||0)+profit(b)});$('sports').innerHTML=Object.keys(groups).length?Object.entries(groups).sort((a,b)=>b[1]-a[1]).map(([sport,p])=>'<div class="topline" style="padding:8px 0;border-bottom:1px solid #28364a"><span>'+esc(sport)+'</span><strong class="'+(p>=0?'positive':'negative')+'">'+money(p)+'</strong></div>').join(''):'<div class="empty">No graded bets in this selection.</div>';$('bets').innerHTML=rows.length?rows.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(b=>'<tr><td>'+esc(b.date)+'</td><td><strong>'+esc(b.selection)+'</strong><div class="sub">'+esc(b.event||b.sport)+'</div></td><td>'+esc(b.type)+'</td><td>'+esc(b.book)+'</td><td>'+esc(oddsText(b.odds))+'</td><td>'+money(b.stake)+'</td><td><span class="status">'+esc(b.status)+'</span></td><td class="'+(profit(b)>=0?'positive':'negative')+'">'+(settled(b)?money(profit(b)):'—')+'</td><td><div class="tags">'+b.tags.map(t=>'<span class="tag">'+esc(t)+'</span>').join('')+'</div></td><td><button class="btn small" data-action="edit" data-id="'+esc(b.id)+'">Edit</button> <button class="btn small win" data-action="Win" data-id="'+esc(b.id)+'">W</button> <button class="btn small loss" data-action="Loss" data-id="'+esc(b.id)+'">L</button> <button class="btn small" data-action="Push" data-id="'+esc(b.id)+'">P</button> <button class="btn small" data-action="delete" data-id="'+esc(b.id)+'">×</button></td></tr>').join(''):'<tr><td colspan="10" class="empty">No bets yet. Add your first bet above.</td></tr>';renderMobileHistory(rows)}
 function renderMobileHistory(rows){
@@ -149,8 +198,8 @@ $('bets-mobile').onclick=e=>{const btn=e.target.closest('button[data-action]');i
 let editing=null;function openEditor(b){editing=b?.id||null;const f=$('betform');f.reset();f.elements.date.value=b?.date||new Date().toLocaleDateString('en-CA');for(const key of ['type','sport','book','selection','event','odds','stake','status','cashoutReturn','notes'])if(b&&b[key]!==undefined)f.elements[key].value=b[key];f.elements.tags.value=b?.tags?.join(', ')||'';$('editortitle').textContent=b?'Edit Bet & Tags':'Add Bet';$('editor').showModal()}
 $('add').onclick=()=>openEditor();$('cancel').onclick=()=>$('editor').close();$('betform').onsubmit=e=>{e.preventDefault();const f=e.target,v=Object.fromEntries(new FormData(f)),odds=Number(v.odds),stake=Number(v.stake),cashout=Number(v.cashoutReturn||0);if(!Number.isFinite(odds)||odds===0||Math.abs(odds)<100||!Number.isFinite(stake)||stake<=0||!Number.isFinite(cashout)||cashout<0||(v.status==='Cashout'&&v.cashoutReturn==='')){alert('Check odds (American odds must be +100 or higher or -100 or lower), stake, and cashout return.');return}const b={id:editing||crypto.randomUUID(),date:v.date,type:v.type,sport:v.sport.trim(),book:v.book,selection:v.selection.trim(),event:v.event.trim(),odds,stake,status:v.status,cashoutReturn:cashout,tags:unique(v.tags.split(',').map(t=>t.trim())),notes:v.notes.trim()};const old=bets; bets=editing?bets.map(x=>x.id===editing?b:x):[...bets,b];if(save()){$('editor').close();render()}else bets=old};
 $('bets').onclick=e=>{const btn=e.target.closest('button[data-action]');if(!btn)return;const b=bets.find(x=>x.id===btn.dataset.id);if(!b)return;const action=btn.dataset.action;if(action==='edit')return openEditor(b);if(action==='delete'){if(!confirm('Permanently delete this bet from your tracker and cloud?'))return;if(typeof window.deleteTrackedBet==='function'){window.deleteTrackedBet(b.id);return}alert('Cloud deletion is not ready. Refresh the page and try again; no bet was removed.');return}const previous=b.status;b.status=action;if(!save())b.status=previous;render()};
-for(const id of ['search','statusfilter','sportfilter','bookfilter','tagfilter','from','to'])$(id).addEventListener('input',render);
-$('clear').onclick=()=>{for(const id of ['search','statusfilter','sportfilter','bookfilter','tagfilter','from','to'])$(id).value='';render()};
+for(const id of ['search','statusfilter','bookfilter','from','to'])$(id).addEventListener('input',render);
+$('clear').onclick=()=>{for(const id of ['search','statusfilter','bookfilter','from','to'])$(id).value='';multiSelections.sportfilter.clear();multiSelections.tagfilter.clear();render()};
 $('backup').onclick=()=>download('sports-bet-tracker-backup-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({version:1,bets},null,2),'application/json');
 $('export').onclick=()=>{const fields=['date','type','sport','book','selection','event','odds','stake','status','cashoutReturn','tags','notes','profit'];const quote=v=>'"'+String(v??'').replace(/"/g,'""')+'"';const csv=[fields.join(','),...filtered().map(b=>fields.map(k=>quote(k==='profit'?profit(b):k==='tags'?b.tags.join('; '):b[k])).join(','))].join('\r\n');download('sports-bets.csv',csv,'text/csv')};
 $('restore').onclick=()=>$('backupfile').click();$('backupfile').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(data.version!==1||!Array.isArray(data.bets)||!data.bets.every(b=>b&&typeof b.id==='string'&&Array.isArray(b.tags)&&typeof b.selection==='string'&&Number.isFinite(b.stake)&&Number.isFinite(b.odds))){throw Error('Invalid V1 backup')}if(!confirm('Replace all locally stored bets with '+data.bets.length+' imported bets? Export a backup first.'))return;const old=bets;bets=data.bets;if(!save())bets=old;render()}catch(err){alert('Import failed: '+err.message)}finally{e.target.value=''}};
