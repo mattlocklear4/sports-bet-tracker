@@ -121,10 +121,25 @@
      const fullText=result.data.text||'';
      const allText=[fullText,headingText,topText].join('\n');
      const fdPick=allText.match(/\b(Over|Under)\s*(\d{1,3}[.,]\d)\s*(?:Shots)?/i);
-     if(fdPick)extracted.selection=fdPick[1][0].toUpperCase()+fdPick[1].slice(1).toLowerCase()+' '+fdPick[2].replace(',','.')+' Shots — Winning Score';
-     const fdEvent=allText.match(/WINNING\s+SCORE\s*[-–]\s*([^\n\r]+)/i);
-     if(fdEvent)extracted.event=fdEvent[1].trim().replace(/\s*[-–]\s*\d{3,4}\s*$/,'');
-     extracted.sport='Golf';
+     // Recognize football passing-yard props before any golf-specific formatting.
+     const passingMarket=allText.match(/([A-Z][A-Za-z.'-]+\s+[A-Z][A-Za-z.'-]+)\s*[-–]\s*PASSING\s*(?:YDS|YARDS)/i);
+     const passingPick=allText.match(/\b([A-Z][A-Za-z.'-]+\s+[A-Z][A-Za-z.'-]+)\s+(Over|Under)\s*(\d{1,3}(?:[.,]\d)?)\b/i);
+     const matchup=allText.match(/([^\n\r]{3,70}?)\s+@\s+([^\n\r]{3,70}?)(?=\s{2,}|\s+\d{1,2}:\d{2}\s*(?:AM|PM)|$)/im);
+     const isPassing=!!passingMarket||/\bPASSING\s*(?:YDS|YARDS)\b/i.test(allText);
+     const isGolf=/\bWINNING\s+SCORE\b|\bROUND\s*\d+\s+SCORE\b|\bGREENS\s+IN\s+REGULATION\b/i.test(allText);
+     if(isPassing){
+       const player=passingMarket?.[1]||passingPick?.[1]||'';
+       const side=passingPick?.[2]||fdPick?.[1]||'';
+       const line=passingPick?.[3]||fdPick?.[2]||'';
+       extracted.selection=[player,side,line,'Passing Yards'].filter(Boolean).join(' ');
+       extracted.sport=/\b(?:Elks|Stampeders|Argonauts|Roughriders|Blue Bombers|Alouettes|Redblacks)\b/i.test(allText)?'CFL Football':'Football';
+       if(matchup)extracted.event=matchup[1].trim()+' @ '+matchup[2].trim();
+     }else if(isGolf){
+       if(fdPick)extracted.selection=fdPick[1][0].toUpperCase()+fdPick[1].slice(1).toLowerCase()+' '+fdPick[2].replace(',','.')+' Shots — Winning Score';
+       const fdEvent=allText.match(/WINNING\s+SCORE\s*[-–]\s*([^\n\r]+)/i);
+       if(fdEvent)extracted.event=fdEvent[1].trim().replace(/\s*[-–]\s*\d{3,4}\s*$/,'');
+       extracted.sport='Golf';
+     }
      // FanDuel displays two monetary columns: "$62.50  $112.50" on one
      // row and "TOTAL WAGER  WON ON FANDUEL" on the next. OCR may flatten
      // the columns, so never use the generic "wager: next number" rule here.
