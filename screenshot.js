@@ -53,7 +53,7 @@
    const monthMap={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
    const date=placed&&monthMap[placed[1]]?placed[3]+'-'+String(monthMap[placed[1]]).padStart(2,'0')+'-'+placed[2].padStart(2,'0'):null;
    const status=/\b(lost|loss|losing)\b/i.test(full)?'Loss':/\b(won|winner|winning bet)\b/i.test(full)?'Win':/\b(pushed|push)\b/i.test(full)?'Push':/\b(voided|void)\b/i.test(full)?'Void':/\b(cashed out|cashout)\b/i.test(full)?'Cashout':'Pending';
-   const notes=[market?'Market: '+market:null,paid!==null?'Actual paid: ,'Screenshot OCR (verify all values):',text.slice(0,1800)].filter(Boolean).join('\n');
+   const notes=[market?'Market: '+market:null,paid!==null?'Actual paid: $'+paid.toFixed(2):payout!==null?'Potential payout: $'+payout.toFixed(2):null,'Screenshot OCR (verify all values):',text.slice(0,1800)].filter(Boolean).join('\n');
    return {book,stake,odds,sport,selection,event,date,status,notes,raw:text};
  };
  button.addEventListener('click',()=>fileInput.click());
@@ -96,86 +96,4 @@
   }catch(err){setStatus('Could not scan screenshot: '+err.message+'. You can still enter the bet manually.')}
   finally{fileInput.value=''}
  });
-})();+paid.toFixed(2):payout!==null?'Potential payout: ,'Screenshot OCR (verify all values):',text.slice(0,1800)].filter(Boolean).join('\n');
-   return {book,stake,odds,sport,selection,event,date,status,notes,raw:text};
- };
- button.addEventListener('click',()=>fileInput.click());
- document.getElementById('scan-cancel').addEventListener('click',()=>{panel.hidden=true;fileInput.value=''});
- fileInput.addEventListener('change',async()=>{
-  const file=fileInput.files?.[0];if(!file)return;
-  if(!/^image\/(png|jpeg|webp)$/.test(file.type)){setStatus('Please choose a PNG, JPG, or WebP screenshot.');fileInput.value='';return}
-  if(file.size>12*1024*1024){setStatus('Image is larger than 12 MB. Please crop or compress it.');fileInput.value='';return}
-  try{
-   setStatus('Reading screenshot locally... This can take 10–30 seconds on a phone.');
-   const T=await loadOCR();const worker=await T.createWorker('eng');
-   let result;try{result=await worker.recognize(file)}catch(e){await worker.terminate();throw e}
-   let topText='';
-   try{setStatus('Checking selection and odds with enhanced recognition...');topText=await readTop(file,worker)}catch(e){console.warn('Enhanced OCR unavailable',e)}
-   const extracted=parse(result.data.text||'');
-   const top=parse(topText);
-   const topPick=topText.match(/\b(over|under)\s*(\d{1,3}(?:[.,]\d+)?)\b/i);
-   if(topPick){
-     extracted.selection=topPick[1][0].toUpperCase()+topPick[1].slice(1).toLowerCase()+' '+topPick[2].replace(',','.');
-   }
-   const roundScore=/round\s*\d+\s*(?:o\/u|score)|round score/i.test((extracted.notes||'')+' '+(result.data.text||''));
-   if(roundScore&&/^\s*(?:Over|Under)\s+[678]\d\d\s*$/i.test(extracted.selection||'')){
-     extracted.selection=extracted.selection.replace(/(\d{2})(\d)\s*$/,'$1.$2');
-   }
-   if(top.odds!==null)extracted.odds=top.odds;
-   extracted.notes+='\nEnhanced top OCR: '+topText.slice(0,500);
-   if(!extracted.raw.trim()){setStatus('No text recognized. Try a clearer screenshot or use Add Bet.');return}
-   document.getElementById('add').click();
-   const form=document.getElementById('betform');
-   for(const [key,val] of Object.entries(extracted)){
-    if(key==='raw'||val===null||val===undefined)continue;
-    const input=form.elements.namedItem(key);
-    if(input&&(!input.options||[...input.options].some(o=>o.value===String(val))))input.value=String(val);
-   }
-   if(extracted.odds===null){form.elements.odds.value='';form.elements.odds.placeholder='Odds not recognized — enter manually';}
-   form.elements.notes.value=extracted.notes;
-   setStatus('Text recognized. Review all fields in the Add Bet form; missing fields must be entered manually. The screenshot is not stored.');
-  }catch(err){setStatus('Could not scan screenshot: '+err.message+'. You can still enter the bet manually.')}
-  finally{fileInput.value=''}
- });
-})();+payout.toFixed(2):null,'Screenshot OCR (verify all values):',text.slice(0,1800)].filter(Boolean).join('\n');
-   return {book,stake,odds,sport,selection,event,date,status,notes,raw:text};
- };
- button.addEventListener('click',()=>fileInput.click());
- document.getElementById('scan-cancel').addEventListener('click',()=>{panel.hidden=true;fileInput.value=''});
- fileInput.addEventListener('change',async()=>{
-  const file=fileInput.files?.[0];if(!file)return;
-  if(!/^image\/(png|jpeg|webp)$/.test(file.type)){setStatus('Please choose a PNG, JPG, or WebP screenshot.');fileInput.value='';return}
-  if(file.size>12*1024*1024){setStatus('Image is larger than 12 MB. Please crop or compress it.');fileInput.value='';return}
-  try{
-   setStatus('Reading screenshot locally... This can take 10–30 seconds on a phone.');
-   const T=await loadOCR();const worker=await T.createWorker('eng');
-   let result;try{result=await worker.recognize(file)}catch(e){await worker.terminate();throw e}
-   let topText='';
-   try{setStatus('Checking selection and odds with enhanced recognition...');topText=await readTop(file,worker)}catch(e){console.warn('Enhanced OCR unavailable',e)}
-   const extracted=parse(result.data.text||'');
-   const top=parse(topText);
-   const topPick=topText.match(/\b(over|under)\s*(\d{1,3}(?:[.,]\d+)?)\b/i);
-   if(topPick){
-     extracted.selection=topPick[1][0].toUpperCase()+topPick[1].slice(1).toLowerCase()+' '+topPick[2].replace(',','.');
-   }
-   const roundScore=/round\s*\d+\s*(?:o\/u|score)|round score/i.test((extracted.notes||'')+' '+(result.data.text||''));
-   if(roundScore&&/^\s*(?:Over|Under)\s+[678]\d\d\s*$/i.test(extracted.selection||'')){
-     extracted.selection=extracted.selection.replace(/(\d{2})(\d)\s*$/,'$1.$2');
-   }
-   if(top.odds!==null)extracted.odds=top.odds;
-   extracted.notes+='\nEnhanced top OCR: '+topText.slice(0,500);
-   if(!extracted.raw.trim()){setStatus('No text recognized. Try a clearer screenshot or use Add Bet.');return}
-   document.getElementById('add').click();
-   const form=document.getElementById('betform');
-   for(const [key,val] of Object.entries(extracted)){
-    if(key==='raw'||val===null||val===undefined)continue;
-    const input=form.elements.namedItem(key);
-    if(input&&(!input.options||[...input.options].some(o=>o.value===String(val))))input.value=String(val);
-   }
-   if(extracted.odds===null){form.elements.odds.value='';form.elements.odds.placeholder='Odds not recognized — enter manually';}
-   form.elements.notes.value=extracted.notes;
-   setStatus('Text recognized. Review all fields in the Add Bet form; missing fields must be entered manually. The screenshot is not stored.');
-  }catch(err){setStatus('Could not scan screenshot: '+err.message+'. You can still enter the bet manually.')}
-  finally{fileInput.value=''}
- });
-})();
+})()
