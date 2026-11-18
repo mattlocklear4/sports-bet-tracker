@@ -93,7 +93,7 @@ async function deleteRemote(ids){
  if((data||[]).length!==ids.length)throw Error('Cloud did not confirm all deletions. Please retry.');
 }
 async function syncCycle(forcePull=false){
- if(!cloudUser||syncBusy||!syncReady)return;
+ if(!cloudUser||syncBusy||!syncReady||pendingDirectDeletes.size)return;
  syncBusy=true;
  try{
   if(deleting.size){
@@ -130,23 +130,21 @@ window.deleteTrackedBet=async(id)=>{
  if(pendingDirectDeletes.has(id))return;
  if(!cloudUser||!syncReady){cloudMessage('Please wait for cloud sync before deleting.');return}
  const target=bets.find(b=>b.id===id);if(!target)return;
- pendingDirectDeletes.add(id);deleting.add(id);dirty.delete(id);
+ pendingDirectDeletes.add(id);dirty.delete(id);
  try{
   // The server must confirm deletion before the browser removes the bet.
   // This prevents a failed RLS or foreign-key operation from appearing successful.
   cloudMessage('Deleting '+target.selection+' from Supabase...');
   await deleteRemote([id]);
-  deleting.delete(id);
   const old=bets;bets=bets.filter(b=>b.id!==id);
   baseline.delete(id);
   if(!save()){bets=old;throw Error('Cloud deleted, but local save failed. Reload to refresh.')}
   render();cloudMessage('Bet permanently deleted · cloud confirmed');
   scheduleSync(300);
  }catch(e){
-  deleting.delete(id);
   cloudMessage('Delete failed: '+e.message);
   alert('Could not delete this bet from Supabase: '+e.message+'\nThe bet has been kept. Please send me this error.');
- }finally{pendingDirectDeletes.delete(id)}
+ }finally{pendingDirectDeletes.delete(id);scheduleSync(400)}
 };
 window.addEventListener('tracker:local-saved',recordLocalChanges);
 supa.auth.onAuthStateChange(()=>{setTimeout(async()=>{await refreshAuth();if(cloudUser){if(!syncReady||activeUserId!==cloudUser.id)await initializeCloud();else scheduleSync(100)}else{syncReady=false;activeUserId=null;dirty.clear();deleting.clear()}},0)});
