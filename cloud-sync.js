@@ -95,12 +95,15 @@ async function initializeCloud(){
  if(activeUserId!==id){activeUserId=id;syncReady=false;dirty.clear();setBaseline()}
  try{
   cloudMessage('Loading cloud bets...');
-  const remote=await getRemote(),merged=new Map(bets.map(b=>[b.id,b]));
+  const remote=await getRemote(),remoteIds=new Set(remote.map(b=>b.id)),merged=new Map(bets.map(b=>[b.id,b]));
+  const localOnly=[...merged.keys()].filter(id=>!remoteIds.has(id));
   for(const b of remote)merged.set(b.id,b);
   const old=bets;bets=[...merged.values()];
   setBaseline();if(!save()){bets=old;throw Error('Could not save cloud data locally')}
   render();setBaseline();lastRefresh=Date.now();syncReady=true;
+  for(const id of localOnly)dirty.add(id);
   cloudMessage('Cloud synced · '+remote.length+' cloud bets');
+  if(dirty.size)scheduleSync(300);
  }catch(e){cloudMessage('Cloud load failed: '+e.message);syncReady=true}
 }
 window.addEventListener('tracker:local-saved',recordLocalChanges);
