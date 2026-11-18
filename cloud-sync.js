@@ -59,7 +59,6 @@ document.getElementById('cloud-download').onclick=async()=>{
 // Upload after manual additions, edits, and grading. Cloud deletions are not yet implemented.
 let autoSyncTimer=null;
 function queueAutoUpload(){if(!cloudUser)return;clearTimeout(autoSyncTimer);autoSyncTimer=setTimeout(async()=>{try{cloudMessage('Syncing changes...');await uploadLocal()}catch(e){cloudMessage('Auto-sync failed: '+e.message)}},1200)}
-document.getElementById('betform').addEventListener('submit',()=>setTimeout(queueAutoUpload,100));
-document.getElementById('bets').addEventListener('click',e=>{const action=e.target.closest('button[data-action]')?.dataset.action;if(['Win','Loss','Push'].includes(action))setTimeout(queueAutoUpload,100)});
+window.addEventListener('tracker:local-saved',queueAutoUpload);
 supa.auth.onAuthStateChange(()=>{setTimeout(refreshAuth,0)});
 refreshAuth();
