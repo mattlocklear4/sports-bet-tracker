@@ -124,10 +124,29 @@
      const fdEvent=allText.match(/WINNING\s+SCORE\s*[-–]\s*([^\n\r]+)/i);
      if(fdEvent)extracted.event=fdEvent[1].trim().replace(/\s*[-–]\s*\d{3,4}\s*$/,'');
      extracted.sport='Golf';
-     const amount=(label)=>{const m=allText.replace(/\s+/g,' ').match(new RegExp('\\$\\s*([\\d,]+(?:\\.\\d{1,2})?)\\s*'+label,'i'));return m?Number(m[1].replaceAll(',','')):null};
-     extracted.stake=extracted.stake??amount('(?:total\\s*wager|wagered)');
-     const winnings=amount('won\\s*on\\s*fanduel');
-     if(extracted.status==='Win'&&winnings!==null)extracted.cashoutReturn=winnings;
+     // FanDuel displays two monetary columns: "$62.50  $112.50" on one
+     // row and "TOTAL WAGER  WON ON FANDUEL" on the next. OCR may flatten
+     // the columns, so never use the generic "wager: next number" rule here.
+     const fdLines=allText.split(/\r?\n/);
+     const cashRe=/\$\s*([\d,]+(?:\.\d{1,2})?)/g;
+     const candidates=[];
+     for(let i=0;i<fdLines.length;i++){
+       if(/TOTAL\s*WAGER|WON\s*ON\s*FANDUEL/i.test(fdLines[i])){
+         const vicinity=fdLines.slice(Math.max(0,i-2),i+1).join(' ');
+         const amounts=[...vicinity.matchAll(cashRe)].map(m=>Number(m[1].replaceAll(',','')));
+         if(amounts.length>=2)candidates.push({stake:amounts[amounts.length-2],paid:amounts[amounts.length-1]});
+       }
+     }
+     const paired=candidates.find(p=>p.stake>0&&p.paid>=p.stake);
+     const flat=allText.replace(/\s+/g,' ');
+     const before=(label)=>{const m=flat.match(new RegExp('\\$\\s*([\\d,]+(?:\\.\\d{1,2})?)\\s*'+label,'i'));return m?Number(m[1].replaceAll(',','')):null};
+     const wagerBefore=before('TOTAL\\s*WAGER');
+     const wonBefore=before('WON\\s*ON\\s*FANDUEL');
+     // Do not trust a generic stake extraction when the FanDuel two-column
+     // layout is present; an incorrect stake is worse than an empty field.
+     extracted.stake=paired?.stake??(wagerBefore!==null&&wonBefore!==null&&wagerBefore!==wonBefore?wagerBefore:null);
+     const winnings=paired?.paid??wonBefore;
+     extracted.cashoutReturn=extracted.status==='Win'?winnings:null;
      const dateMatch=allText.match(/\bplaced\s*[:;]?\s*(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(20\d{2})/i);
      if(dateMatch)extracted.date=dateMatch[3]+'-'+dateMatch[1].padStart(2,'0')+'-'+dateMatch[2].padStart(2,'0');
    }
