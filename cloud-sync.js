@@ -128,7 +128,7 @@ async function initializeCloud(){
 const pendingDirectDeletes=new Set();
 window.deleteTrackedBet=async(id)=>{
  if(pendingDirectDeletes.has(id))return;
- if(!cloudUser||!syncReady){cloudMessage('Please wait for cloud sync before deleting.');return}
+ if(!cloudUser||!syncReady||syncBusy){cloudMessage('Please wait for cloud sync to finish, then delete again.');return}
  const target=bets.find(b=>b.id===id);if(!target)return;
  pendingDirectDeletes.add(id);dirty.delete(id);
  try{
