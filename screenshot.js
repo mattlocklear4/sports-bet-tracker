@@ -82,6 +82,19 @@
      }finally{bitmap.close()}
    }catch(e){console.warn('Heading OCR unavailable',e)}
    // Diagnostics: keep the OCR's literal heading text visible for troubleshooting.
+   // DraftKings OCR often collapses '13.5' to '13s' or 'izs'.
+   // Only repair the heading's Over/Under token; never infer odds or stake.
+   const normalizeHeadingPick = raw => {
+     const compact=raw.replace(/\\s+/g,'').toLowerCase();
+     const m=compact.match(/(?:over|under|0ver|0nder)([0-9ilzso]{2,4})/i);
+     if(!m)return null;
+     let digits=m[1].replace(/[il]/g,'1').replace(/z/g,'2').replace(/[so]/g,'5');
+     // Three digit forms represent two-digit .5 golf prop lines, e.g. 135 or 695.
+     if(!/^\\d{3}$/.test(digits)||digits[2]!=='5')return null;
+     const side=/^(?:over|0ver)/i.test(m[0])?'Over':'Under';
+     return side+' '+digits.slice(0,2)+'.5';
+   };
+   const repairedSelection=normalizeHeadingPick(headingText)||normalizeHeadingPick(result.data.text||'')||normalizeHeadingPick(topText);
    const headingPick=(headingText+'\n'+topText+'\n'+(result.data.text||'')).match(/\b(over|under|0ver|0nder)\s*([0-9]{1,3})\s*[.,]?\s*([05])(?=\s|[|¦•·+−–-]|$)/i);
    if(headingPick){
      extracted.selection=(/^o|^0/i.test(headingPick[1])?'Over':'Under')+' '+headingPick[2]+'.'+headingPick[3];
@@ -95,6 +108,7 @@
    if(roundScore&&/^\s*(?:Over|Under)\s+[678]\d\d\s*$/i.test(extracted.selection||'')){
      extracted.selection=extracted.selection.replace(/(\d{2})(\d)\s*$/,'$1.$2');
    }
+   if(repairedSelection)extracted.selection=repairedSelection;
    if(top.odds!==null)extracted.odds=top.odds;
    const isGIR=/greens in regulation/i.test(result.data.text||'');
    if(isGIR&&/^\s*(Over|Under)\s+1[0-8]\d\s*$/i.test(extracted.selection||''))extracted.selection=extracted.selection.replace(/(1[0-8])(\d)\s*$/,'$1.$2');
