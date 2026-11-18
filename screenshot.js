@@ -81,6 +81,7 @@
        headingText=(await worker.recognize(canvas)).data.text||'';
      }finally{bitmap.close()}
    }catch(e){console.warn('Heading OCR unavailable',e)}
+   // Diagnostics: keep the OCR's literal heading text visible for troubleshooting.
    const headingPick=(headingText+'\n'+topText+'\n'+(result.data.text||'')).match(/\b(over|under|0ver|0nder)\s*([0-9]{1,3})\s*[.,]?\s*([05])(?=\s|[|¦•·+−–-]|$)/i);
    if(headingPick){
      extracted.selection=(/^o|^0/i.test(headingPick[1])?'Over':'Under')+' '+headingPick[2]+'.'+headingPick[3];
@@ -97,6 +98,7 @@
    if(top.odds!==null)extracted.odds=top.odds;
    const isGIR=/greens in regulation/i.test(result.data.text||'');
    if(isGIR&&/^\s*(Over|Under)\s+1[0-8]\d\s*$/i.test(extracted.selection||''))extracted.selection=extracted.selection.replace(/(1[0-8])(\d)\s*$/,'$1.$2');
+   extracted.notes+='\nScanner diagnostics (raw heading text follows):\n'+headingText.slice(0,1500)+'\nTop crop:\n'+topText.slice(0,1000)+'\nFull OCR excerpt:\n'+(result.data.text||'').slice(0,1000);
    extracted.notes+='\nHeading OCR: '+headingText.slice(0,500)+'\nEnhanced top OCR: '+topText.slice(0,500);
    if(!extracted.raw.trim()){setStatus('No text recognized. Try a clearer screenshot or use Add Bet.');return}
    document.getElementById('add').click();
@@ -108,7 +110,8 @@
    }
    if(extracted.odds===null){form.elements.odds.value='';form.elements.odds.placeholder='Odds not recognized — enter manually';}
    form.elements.notes.value=extracted.notes;
-   setStatus('Text recognized. Review all fields in the Add Bet form; missing fields must be entered manually. The screenshot is not stored.');
+   if(!extracted.selection){setStatus('Selection was not recognized. Open Notes in the Add Bet form and copy the text under "Scanner diagnostics" so we can fix the OCR accurately.');}
+   else setStatus('Text recognized. Review all fields in the Add Bet form; missing fields must be entered manually. The screenshot is not stored.');
   }catch(err){setStatus('Could not scan screenshot: '+err.message+'. You can still enter the bet manually.')}
   finally{fileInput.value=''}
  });
