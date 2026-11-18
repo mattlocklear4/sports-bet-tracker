@@ -81,7 +81,7 @@
        headingText=(await worker.recognize(canvas)).data.text||'';
      }finally{bitmap.close()}
    }catch(e){console.warn('Heading OCR unavailable',e)}
-   const headingPick=(headingText+'\\n'+topText+'\\n'+(result.data.text||'')).match(/\\b(over|under|0ver|0nder)\\s*([0-9]{1,3})\\s*[.,]?\\s*([05])(?=\\s|[|¦•·+−–-]|$)/i);
+   const headingPick=(headingText+'\n'+topText+'\n'+(result.data.text||'')).match(/\b(over|under|0ver|0nder)\s*([0-9]{1,3})\s*[.,]?\s*([05])(?=\s|[|¦•·+−–-]|$)/i);
    if(headingPick){
      extracted.selection=(/^o|^0/i.test(headingPick[1])?'Over':'Under')+' '+headingPick[2]+'.'+headingPick[3];
    }
