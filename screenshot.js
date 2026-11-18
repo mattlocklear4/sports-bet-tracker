@@ -81,39 +81,41 @@
        headingText=(await worker.recognize(canvas)).data.text||'';
      }finally{bitmap.close()}
    }catch(e){console.warn('Heading OCR unavailable',e)}
-   // Diagnostics: keep the OCR's literal heading text visible for troubleshooting.
-   // DraftKings OCR often collapses '13.5' to '13s' or 'izs'.
-   // Only repair the heading's Over/Under token; never infer odds or stake.
-   const normalizeHeadingPick = raw => {
+   // Parse the wager heading from OCR lines independently of market and event.
+   // The full OCR often reads decimal-five as "s" (over13s).
+   const headingSources=[result.data.text||'',headingText,topText];
+   const parseHeading=raw=>{
+     for(const line of raw.split(/\r?\n/)){
+       const match=line.match(/\b(over|under|0ver|0nder)\s*([0-9ilzo]{1,3})\s*([.,sS5])\s*([0-9])?\b?/i)
+         ||line.match(/\b(over|under|0ver|0nder)\s*([0-9ilzo]{2,3})([sS5])(?=\s|[|¦•·+−–-]|$)/i);
+       if(!match)continue;
+       const side=/^(?:over|0ver)/i.test(match[1])?'Over':'Under';
+       const whole=match[2].toLowerCase().replace(/[il]/g,'1').replace(/z/g,'2').replace(/o/g,'0');
+       if(!/^\d{1,3}$/.test(whole))continue;
+       let value=null;
+       if(match[4])value=whole+'.'+match[4];
+       else if(/[sS5]/.test(match[3]))value=whole+'.5';
+       else if(whole.length===3&&/[.,]/.test(match[3]))continue;
+       if(value!==null&&Number(value)>=0&&Number(value)<=400)return side+' '+value;
+     }
+     // Fallback for OCR text where punctuation disappears entirely.
      const compact=raw.replace(/\s+/g,'').toLowerCase();
-     const m=compact.match(/(?:over|under|0ver|0nder)([0-9ilzso]{2,4})/i);
-     if(!m)return null;
-     const digits=m[1].replace(/[il]/g,'1').replace(/z/g,'2').replace(/[so]/g,'5');
-     if(!/^\d{3}$/.test(digits)||digits[2]!=='5')return null;
-     const side=/^(?:over|0ver)/i.test(m[0])?'Over':'Under';
-     return side+' '+digits.slice(0,2)+'.5';
+     const m=compact.match(/(?:over|under|0ver|0nder)(\d{2})([s5])(?=[^\d]|$)/i);
+     if(m)return (/^(?:over|0ver)/i.test(m[0])?'Over':'Under')+' '+m[1]+'.5';
+     return null;
    };
-   // Prefer full-image OCR: it reads "over13s" more accurately than the cropped "overizs".
-   const repairedSelection=normalizeHeadingPick(result.data.text||'')||normalizeHeadingPick(headingText)||normalizeHeadingPick(topText);
-   const headingPick=(headingText+'\n'+topText+'\n'+(result.data.text||'')).match(/\b(over|under|0ver|0nder)\s*([0-9]{1,3})\s*[.,]?\s*([05])(?=\s|[|¦•·+−–-]|$)/i);
-   if(headingPick){
-     extracted.selection=(/^o|^0/i.test(headingPick[1])?'Over':'Under')+' '+headingPick[2]+'.'+headingPick[3];
+   const headingSelection=headingSources.map(parseHeading).find(Boolean);
+   if(headingSelection)extracted.selection=headingSelection;
+   // Preserve the market/player as part of the description rather than replacing it
+   // with the unrelated three-player tee-time grouping.
+   const marketLine=(result.data.text||'').split(/\r?\n/).map(x=>x.trim()).find(x=>/greens in regulation|round score|birdies or better|bogey|winning score/i.test(x));
+   if(marketLine&&headingSelection){
+     const cleanMarket=marketLine.replace(/[|¦]+\s*$/,'').trim();
+     if(cleanMarket&&!/^(?:over|under)\b/i.test(cleanMarket))extracted.selection=cleanMarket+' — '+headingSelection;
    }
-
-   const topPick=topText.match(/\b(over|under)\s*(\d{1,3}(?:[.,]\d+)?)\b/i);
-   if(topPick&&!headingPick){
-     extracted.selection=topPick[1][0].toUpperCase()+topPick[1].slice(1).toLowerCase()+' '+topPick[2].replace(',','.');
-   }
-   const roundScore=/round\s*\d+\s*(?:o\/u|score)|round score/i.test((extracted.notes||'')+' '+(result.data.text||''));
-   if(roundScore&&/^\s*(?:Over|Under)\s+[678]\d\d\s*$/i.test(extracted.selection||'')){
-     extracted.selection=extracted.selection.replace(/(\d{2})(\d)\s*$/,'$1.$2');
-   }
-   if(repairedSelection)extracted.selection=repairedSelection;
    if(top.odds!==null)extracted.odds=top.odds;
-   const isGIR=/greens in regulation/i.test(result.data.text||'');
-   if(isGIR&&/^\s*(Over|Under)\s+1[0-8]\d\s*$/i.test(extracted.selection||''))extracted.selection=extracted.selection.replace(/(1[0-8])(\d)\s*$/,'$1.$2');
-   extracted.notes+='\nScanner diagnostics (raw heading text follows):\n'+headingText.slice(0,1500)+'\nTop crop:\n'+topText.slice(0,1000)+'\nFull OCR excerpt:\n'+(result.data.text||'').slice(0,1000);
-   extracted.notes+='\nHeading OCR: '+headingText.slice(0,500)+'\nEnhanced top OCR: '+topText.slice(0,500);
+   // Keep a concise diagnostic without appending pages of repeated OCR to notes.
+   extracted.notes+='\nScanner: '+(headingSelection||'selection needs review');
    if(!extracted.raw.trim()){setStatus('No text recognized. Try a clearer screenshot or use Add Bet.');return}
    document.getElementById('add').click();
    const form=document.getElementById('betform');
