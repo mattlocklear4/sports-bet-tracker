@@ -36,9 +36,9 @@
      const m=full.match(new RegExp(label+'\\s*[:;]?\\s*\\$?\\s*([\\d,]+(?:\\.\\d{1,2})?)','i'));
      return m?Number(m[1].replaceAll(',','')):null;
    };
-   const stake=amountAfter('(?:wager(?:\\s*amount)?|stake|risk|bet\\s*amount|amount\\s*wagered)');
+   const stake=amountAfter('(?:wager(?:\\s*amount)?|stake|risk|bet\\s*amount|amount\\s*wagered)') ?? (()=>{const m=full.match(/\\$\\s*([\\d,]+(?:\\.\\d{1,2})?)\\s*(?:total\\s*wager|wagered)/i);return m?Number(m[1].replaceAll(',','')):null})();
    const payout=amountAfter('(?:total\\s*payout|potential\\s*payout|to\\s*return)');
-   const paid=amountAfter('(?:paid|total\\s*paid|total\\s*returned)');
+   const paid=amountAfter('(?:paid|total\\s*paid|total\\s*returned)') ?? (()=>{const m=full.match(/\\$\\s*([\\d,]+(?:\\.\\d{1,2})?)\\s*won\\s*on\\s*fanduel/i);return m?Number(m[1].replaceAll(',','')):null})();
    const oddsMatches=[...full.matchAll(/(?:^|[\s|¦•·])([+−–-]\s*\d{3,4})(?=\s|$|[|¦•·)])/g)];
    const odds=oddsMatches.length?Number(oddsMatches[0][1].replace(/[−–]/g,'-').replace(/\s/g,'')):null;
    const sport=/\b(golf|pga|dp world|liv|winning score o\/u|rsm classic|masters|open championship|round score|greens in regulation|r3 o\/u)\b/i.test(full)?'Golf':/\b(nfl|football)\b/i.test(full)?'NFL':/\b(nba|basketball)\b/i.test(full)?'NBA':/\b(mlb|baseball)\b/i.test(full)?'MLB':null;
@@ -48,10 +48,10 @@
    const selection=pickLine?pickLine.replace(/\s*(?:[|¦•·])?\s*[+−–-]\s*\d{3,4}\s*$/,'').trim():pickMatch?(pickMatch[1][0].toUpperCase()+pickMatch[1].slice(1).toLowerCase()+' '+pickMatch[2].replace(',','.')):candidate?candidate.replace(/\s*[+−–-]\s*\d{3,4}\s*$/,'').trim():null;
    const market=lines.find(l=>/winning score o\/u|round score|greens in regulation|birdies or better|bogey|moneyline|spread/i.test(l));
    const eventLine=lines.find(l=>/\b(?:classic|championship|open|masters|invitational|tournament)\b/i.test(l)&&!/^receipt/i.test(l)) || lines.find(l=>/\s+v\s+.+\s+v\s+.+(?:\s*[-–]\s*R\d)?$/i.test(l));
-   const event=eventLine?eventLine.replace(/\s*(?:[•·+|]|\s)\s*(?:mon|tue|wed|thu|fri|sat|sun)\b.*$/i,'').trim():null;
+   const event=eventLine?eventLine.replace(/^\\s*(?:winning\\s+score\\s*[-–:]\\s*)/i,'').replace(/\s*(?:[•·+|]|\s)\s*(?:mon|tue|wed|thu|fri|sat|sun)\b.*$/i,'').trim():null;
    const placed=full.match(/\b([A-Z][a-z]{2})\s+(\d{1,2}),?\s+(20\d{2})\b/);
    const monthMap={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
-   const date=placed&&monthMap[placed[1]]?placed[3]+'-'+String(monthMap[placed[1]]).padStart(2,'0')+'-'+placed[2].padStart(2,'0'):null;
+   const date=placed?( /^\\d+$/.test(placed[1]) ? placed[3]+'-'+placed[1].padStart(2,'0')+'-'+placed[2].padStart(2,'0') : monthMap[placed[1]]?placed[3]+'-'+String(monthMap[placed[1]]).padStart(2,'0')+'-'+placed[2].padStart(2,'0'):null ):null;
    const status=/\b(lost|loss|losing)\b/i.test(full)?'Loss':/\b(won|winner|winning bet)\b/i.test(full)?'Win':/\b(pushed|push)\b/i.test(full)?'Push':/\b(voided|void)\b/i.test(full)?'Void':/\b(cashed out|cashout)\b/i.test(full)?'Cashout':'Pending';
    const notes=[market?'Market: '+market:null,paid!==null?'Actual paid: $'+paid.toFixed(2):payout!==null?'Potential payout: $'+payout.toFixed(2):null,'Screenshot OCR (verify all values):',text.slice(0,1800)].filter(Boolean).join('\n');
    return {book,stake,odds,sport,selection,event,date,status,cashoutReturn:status==='Win'&&paid!==null?paid:status==='Cashout'&&paid!==null?paid:null,notes,raw:text};
@@ -114,6 +114,13 @@
      if(cleanMarket&&!/^(?:over|under)\b/i.test(cleanMarket))extracted.selection=headingSelection+' — '+cleanMarket;
    }
    if(top.odds!==null)extracted.odds=top.odds;
+   if(extracted.book==='FanDuel'){
+     const fullText=result.data.text||'';
+     const fdPick=fullText.match(/\\b(Over|Under)\\s*(\\d{1,3}[.,]\\d)\\s*(?:Shots)?/i);
+     if(fdPick)extracted.selection=fdPick[1][0].toUpperCase()+fdPick[1].slice(1).toLowerCase()+' '+fdPick[2].replace(',','.')+' Shots — Winning Score';
+     const fdEvent=fullText.match(/WINNING\\s+SCORE\\s*[-–]\\s*([^\\n\\r]+)/i);
+     if(fdEvent)extracted.event=fdEvent[1].trim().replace(/\\s*[-–]\\s*\\d{3,4}\\s*$/,'');
+   }
    // Keep a concise diagnostic without appending pages of repeated OCR to notes.
    extracted.notes+='\nScanner: '+(headingSelection||'selection needs review');
    if(!extracted.raw.trim()){setStatus('No text recognized. Try a clearer screenshot or use Add Bet.');return}
