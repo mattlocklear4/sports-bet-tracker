@@ -20,7 +20,7 @@ body.auth-locked main > :not(.panel:first-of-type){display:none!important}body.a
 <div class="field wide"><label>Selection / Bet description</label><input name="selection" placeholder="Player Under 69.5, 3-leg parlay..." required></div>
 <div class="field wide"><label>Event / Tournament (optional)</label><input name="event" placeholder="The Masters — Round 1"></div>
 <div class="field"><label>American odds</label><input name="odds" type="number" placeholder="-110" required></div><div class="field"><label>Stake ($)</label><input name="stake" type="number" min="0.01" step="0.01" required></div>
-<div class="field"><label>Status</label><select name="status"><option>Pending</option><option>Win</option><option>Loss</option><option>Push</option><option>Void</option><option>Cashout</option></select></div><div class="field"><label>Cashout return ($, if applicable)</label><input name="cashoutReturn" type="number" min="0" step="0.01" placeholder="Total returned"></div>
+<div class="field"><label>Status</label><select name="status"><option>Pending</option><option>Win</option><option>Loss</option><option>Push</option><option>Void</option><option>Cashout</option></select></div><div class="field"><label>Actual payout / cashout return ($, if applicable)</label><input name="cashoutReturn" type="number" min="0" step="0.01" placeholder="Total returned"></div>
 <div class="field wide"><label>Tags (comma-separated, editable anytime)</label><input name="tags" placeholder="Weather Edge, Round Score, Model Edge"></div>
 <div class="field wide"><label>Notes (optional)</label><textarea name="notes" placeholder="Why did you place this bet?"></textarea></div>
 </div><footer><button type="button" class="btn" id="cancel">Cancel</button><button class="btn primary" type="submit">Save Bet</button></footer></form></dialog>
@@ -33,7 +33,7 @@ const $=id=>document.getElementById(id);
 const money=n=>(n<0?'−':'')+'$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const oddsText=n=>Number(n)>0?'+'+n:String(n);
-const profit=b=>b.status==='Win'?b.stake*(b.odds>0?b.odds/100:100/Math.abs(b.odds)):b.status==='Loss'?-b.stake:b.status==='Cashout'?Number(b.cashoutReturn||0)-b.stake:0;
+const profit=b=>b.status==='Win'?(Number(b.cashoutReturn)>0?Number(b.cashoutReturn)-b.stake:b.stake*(b.odds>0?b.odds/100:100/Math.abs(b.odds))):b.status==='Loss'?-b.stake:b.status==='Cashout'?Number(b.cashoutReturn||0)-b.stake:0;
 const settled=b=>b.status!=='Pending';
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(bets));window.dispatchEvent(new Event('tracker:local-saved'));return true}catch(e){alert('Unable to save: browser storage may be full. Export a backup.');return false}};
 const unique=arr=>[...new Set(arr.filter(Boolean))].sort((a,b)=>a.localeCompare(b));
@@ -52,4 +52,4 @@ $('backup').onclick=()=>download('sports-bet-tracker-backup-'+new Date().toISOSt
 $('export').onclick=()=>{const fields=['date','type','sport','book','selection','event','odds','stake','status','cashoutReturn','tags','notes','profit'];const quote=v=>'"'+String(v??'').replace(/"/g,'""')+'"';const csv=[fields.join(','),...filtered().map(b=>fields.map(k=>quote(k==='profit'?profit(b):k==='tags'?b.tags.join('; '):b[k])).join(','))].join('\r\n');download('sports-bets.csv',csv,'text/csv')};
 $('restore').onclick=()=>$('backupfile').click();$('backupfile').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(data.version!==1||!Array.isArray(data.bets)||!data.bets.every(b=>b&&typeof b.id==='string'&&Array.isArray(b.tags)&&typeof b.selection==='string'&&Number.isFinite(b.stake)&&Number.isFinite(b.odds))){throw Error('Invalid V1 backup')}if(!confirm('Replace all locally stored bets with '+data.bets.length+' imported bets? Export a backup first.'))return;const old=bets;bets=data.bets;if(!save())bets=old;render()}catch(err){alert('Import failed: '+err.message)}finally{e.target.value=''}};
 render();
-</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.3/dist/umd/supabase.min.js"></script><script src="./cloud-sync.js"></script><script src="./screenshot.js?v=20261117-16"></script></body></html>
+</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.3/dist/umd/supabase.min.js"></script><script src="./cloud-sync.js"></script><script src="./screenshot.js?v=20261117-17"></script></body></html>
