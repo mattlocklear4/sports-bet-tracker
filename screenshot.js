@@ -70,8 +70,24 @@
    try{setStatus('Checking selection and odds with enhanced recognition...');topText=await readTop(file,worker)}catch(e){console.warn('Enhanced OCR unavailable',e)}
    const extracted=parse(result.data.text||'');
    const top=parse(topText);
+   // Re-read the bet heading without thresholding: thin white text can disappear in binary OCR.
+   let headingText='';
+   try{
+     const bitmap=await createImageBitmap(file);
+     try{
+       const canvas=document.createElement('canvas');
+       canvas.width=bitmap.width*2;canvas.height=Math.round(bitmap.height*.48*2);
+       canvas.getContext('2d').drawImage(bitmap,0,0,bitmap.width,bitmap.height*.48,0,0,canvas.width,canvas.height);
+       headingText=(await worker.recognize(canvas)).data.text||'';
+     }finally{bitmap.close()}
+   }catch(e){console.warn('Heading OCR unavailable',e)}
+   const headingPick=(headingText+'\\n'+topText+'\\n'+(result.data.text||'')).match(/\\b(over|under|0ver|0nder)\\s*([0-9]{1,3})\\s*[.,]?\\s*([05])(?=\\s|[|¦•·+−–-]|$)/i);
+   if(headingPick){
+     extracted.selection=(/^o|^0/i.test(headingPick[1])?'Over':'Under')+' '+headingPick[2]+'.'+headingPick[3];
+   }
+
    const topPick=topText.match(/\b(over|under)\s*(\d{1,3}(?:[.,]\d+)?)\b/i);
-   if(topPick){
+   if(topPick&&!headingPick){
      extracted.selection=topPick[1][0].toUpperCase()+topPick[1].slice(1).toLowerCase()+' '+topPick[2].replace(',','.');
    }
    const roundScore=/round\s*\d+\s*(?:o\/u|score)|round score/i.test((extracted.notes||'')+' '+(result.data.text||''));
@@ -81,7 +97,7 @@
    if(top.odds!==null)extracted.odds=top.odds;
    const isGIR=/greens in regulation/i.test(result.data.text||'');
    if(isGIR&&/^\s*(Over|Under)\s+1[0-8]\d\s*$/i.test(extracted.selection||''))extracted.selection=extracted.selection.replace(/(1[0-8])(\d)\s*$/,'$1.$2');
-   extracted.notes+='\nEnhanced top OCR: '+topText.slice(0,500);
+   extracted.notes+='\nHeading OCR: '+headingText.slice(0,500)+'\nEnhanced top OCR: '+topText.slice(0,500);
    if(!extracted.raw.trim()){setStatus('No text recognized. Try a clearer screenshot or use Add Bet.');return}
    document.getElementById('add').click();
    const form=document.getElementById('betform');
