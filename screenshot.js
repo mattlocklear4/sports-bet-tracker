@@ -69,16 +69,16 @@
    try{setStatus('Checking selection and odds with enhanced recognition...');topText=await readTop(file,worker)}catch(e){console.warn('Enhanced OCR unavailable',e)}
    const extracted=parse(result.data.text||'');
    const top=parse(topText);
-   const topPick=topText.match(/\\b(over|under)\\s*(\\d{1,3}(?:[.,]\\d+)?)\\b/i);
+   const topPick=topText.match(/\b(over|under)\s*(\d{1,3}(?:[.,]\d+)?)\b/i);
    if(topPick){
-     let n=topPick[2].replace(',','.');
-     if(/^\\d{3}$/.test(n)&&Number(n)>=600&&Number(n)<=899)n=n.slice(0,2)+'.'+n.slice(2);
-     extracted.selection=topPick[1][0].toUpperCase()+topPick[1].slice(1).toLowerCase()+' '+n;
-   }else if(/^\\s*(Over|Under)\\s+\\d{3}\\s*$/i.test(extracted.selection||'')){
-     extracted.selection=extracted.selection.replace(/(\\d{2})(\\d)\\s*$/,'$1.$2');
+     extracted.selection=topPick[1][0].toUpperCase()+topPick[1].slice(1).toLowerCase()+' '+topPick[2].replace(',','.');
+   }
+   const roundScore=/round\s*\d+\s*(?:o\/u|score)|round score/i.test((extracted.notes||'')+' '+(result.data.text||''));
+   if(roundScore&&/^\s*(?:Over|Under)\s+[678]\d\d\s*$/i.test(extracted.selection||'')){
+     extracted.selection=extracted.selection.replace(/(\d{2})(\d)\s*$/,'$1.$2');
    }
    if(top.odds!==null)extracted.odds=top.odds;
-   extracted.notes+='\\nEnhanced top OCR: '+topText.slice(0,500);
+   extracted.notes+='\nEnhanced top OCR: '+topText.slice(0,500);
    if(!extracted.raw.trim()){setStatus('No text recognized. Try a clearer screenshot or use Add Bet.');return}
    document.getElementById('add').click();
    const form=document.getElementById('betform');
