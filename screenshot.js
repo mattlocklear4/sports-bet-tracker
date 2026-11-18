@@ -26,7 +26,7 @@
    const selection=candidate?candidate.replace(/\s*[+−–-]\s*\d{3,4}\s*$/,'').trim():null;
    const market=lines.find(l=>/winning score o\/u|round score|birdies or better|bogey|moneyline|spread/i.test(l));
    const eventLine=lines.find(l=>/\b(?:classic|championship|open|masters|invitational|tournament)\b/i.test(l)&&!/^receipt/i.test(l));
-   const event=eventLine?eventLine.replace(/\s*[•·]\s*(?:mon|tue|wed|thu|fri|sat|sun)\b.*$/i,'').trim():null;
+   const event=eventLine?eventLine.replace(/\s*(?:[•·+|]|\s)\s*(?:mon|tue|wed|thu|fri|sat|sun)\b.*$/i,'').trim():null;
    const placed=full.match(/\b([A-Z][a-z]{2})\s+(\d{1,2}),?\s+(20\d{2})\b/);
    const monthMap={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
    const date=placed&&monthMap[placed[1]]?placed[3]+'-'+String(monthMap[placed[1]]).padStart(2,'0')+'-'+placed[2].padStart(2,'0'):null;
