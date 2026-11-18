@@ -38,6 +38,38 @@ body.auth-locked main > :not(.panel:first-of-type){display:none!important}body.a
  .bet-mobile-actions .btn{margin:0;padding:7px 11px}
  #cloud-status{overflow-wrap:anywhere;text-align:right;max-width:65%}
 }
+
+@media(max-width:720px){
+ .bet-mobile{gap:12px}
+ .bet-mobile-item{padding:15px;border-radius:14px;background:#101d30;border-color:#2a3d55;box-shadow:0 2px 12px #00000012}
+ .bet-mobile-item.win{border-left:3px solid #35bb80}
+ .bet-mobile-item.loss{border-left:3px solid #ec6e82}
+ .bet-mobile-item.pending{border-left:3px solid #6d91c7}
+ .bet-book{font-size:13px;font-weight:700;color:#d9e8f8}
+ .bet-status{font-size:12px;font-weight:700;border-radius:999px;padding:4px 10px;background:#24334b}
+ .bet-status.win{color:#5ae0a2;background:#163b35}
+ .bet-status.loss{color:#ff9cab;background:#482a38}
+ .bet-status.pending{color:#bad1f5;background:#263b5b}
+ .bet-mobile-date{font-size:11px;color:#91a8c1;margin-top:6px}
+ .bet-mobile-title{font-size:15px;line-height:1.35;font-weight:750;margin-top:10px;overflow-wrap:anywhere}
+ .bet-mobile-event{font-size:12px;color:#a6b9ce;margin-top:6px;line-height:1.35;overflow-wrap:anywhere}
+ .bet-leg-list{display:grid;gap:7px;margin-top:9px}
+ .bet-leg{display:flex;align-items:flex-start;gap:9px;font-size:13px;line-height:1.35;color:#dce8f6;overflow-wrap:anywhere}
+ .bet-leg-index{flex:0 0 21px;height:21px;display:grid;place-items:center;border-radius:50%;background:#263d5b;color:#c9d9ee;font-size:11px;font-weight:700}
+ .bet-metrics{display:grid;grid-template-columns:1fr 1fr 1.15fr;gap:6px;margin-top:12px;padding:11px 9px;border-radius:9px;background:#0b1626}
+ .bet-metrics>div{min-width:0;display:grid;gap:5px}
+ .bet-metrics small{font-size:10px;color:#8da4bd}
+ .bet-metrics strong{font-size:14px;overflow-wrap:anywhere}
+ .bet-mobile-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px}
+ .bet-mobile-footer .btn{padding:8px 13px;font-size:12px}
+ .bet-more{position:relative;font-size:12px}
+ .bet-more summary{cursor:pointer;list-style:none;padding:9px 12px;background:#233751;border:1px solid #3b516d;border-radius:8px}
+ .bet-more summary::-webkit-details-marker{display:none}
+ .bet-more-menu{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin-top:8px}
+ .bet-more[open]{flex:1}
+ .bet-more[open] summary{width:max-content;margin-left:auto}
+ .bet-mobile-item .tags{margin-top:9px}
+}
 </style></head><body class="auth-locked">
 <header><div><h1>🏆 Sports Bet Tracker</h1><div class="sub">V2.1 · Private account · Automatic cloud sync</div></div><div class="row"><button class="btn" id="chatgpt-import-btn">📋 Import from ChatGPT</button><button class="btn primary" id="add">+ Add Bet</button></div></header>
 <main><div class="actions"><button class="btn" id="export">Export CSV</button><button class="btn" id="backup">Backup JSON</button><button class="btn" id="restore">Import Backup</button><input type="file" id="backupfile" accept=".json,application/json" hidden><span class="hint">Signed-in changes automatically sync to the cloud.</span></div>
@@ -79,12 +111,25 @@ function updateOptions(){for(const [id,values] of [['sportfilter',unique(bets.ma
 function chart(rows){if(!rows.length)return '<div class="empty">Grade some bets to see your profit trend.</div>';let running=0;const points=rows.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(b=>({date:b.date,y:running+=profit(b)}));const vals=[0,...points.map(p=>p.y)],lo=Math.min(...vals),hi=Math.max(...vals),range=hi-lo||1;const coords=[{x:10,y:155},...points.map((p,i)=>({x:10+(i+1)*570/points.length,y:155-(p.y-lo)/range*130}))];const path=coords.map((p,i)=>(i?'L':'M')+p.x.toFixed(1)+' '+p.y.toFixed(1)).join(' ');return '<svg viewBox="0 0 600 180" class="chart" role="img" aria-label="Cumulative profit and loss line chart"><line x1="10" y1="'+(155-(0-lo)/range*130)+'" x2="580" y2="'+(155-(0-lo)/range*130)+'" stroke="#55677e" stroke-dasharray="4 4"/><path d="'+path+'" fill="none" stroke="#63b4ff" stroke-width="3"/><text x="10" y="175" fill="#a9bcd2" font-size="13">'+esc(points[0].date)+'</text><text x="480" y="175" fill="#a9bcd2" font-size="13">'+esc(points.at(-1).date)+'</text><text x="10" y="15" fill="#a9bcd2" font-size="13">'+esc(money(hi))+'</text></svg>'}
 function render(){updateOptions();const rows=filtered(),closed=rows.filter(settled),decided=rows.filter(b=>b.status==='Win'||b.status==='Loss'),wagered=closed.reduce((s,b)=>s+b.stake,0),pnl=closed.reduce((s,b)=>s+profit(b),0),wins=decided.filter(b=>b.status==='Win').length;const metrics=[['Net Profit / Loss',money(pnl),pnl>=0?'positive':'negative'],['ROI',wagered?(100*pnl/wagered).toFixed(2)+'%':'—',pnl>=0?'positive':'negative'],['Win Rate',decided.length?(100*wins/decided.length).toFixed(1)+'%':'—',''],['Total Wagered',money(wagered),''],['Pending Exposure',money(rows.filter(b=>b.status==='Pending').reduce((s,b)=>s+b.stake,0)),''],['Graded Bets',closed.length+' / '+rows.length,''],['Wins / Losses',wins+' / '+(decided.length-wins),''],['Average Odds',rows.length?(rows.reduce((s,b)=>s+b.odds,0)/rows.length).toFixed(0):'—','']];$('stats').innerHTML=metrics.map(m=>'<div class="card"><div class="muted">'+m[0]+'</div><div class="num '+m[2]+'">'+m[1]+'</div></div>').join('');$('count').textContent=rows.length+' bets';$('chart').innerHTML=chart(closed);const groups={};closed.forEach(b=>{groups[b.sport]=(groups[b.sport]||0)+profit(b)});$('sports').innerHTML=Object.keys(groups).length?Object.entries(groups).sort((a,b)=>b[1]-a[1]).map(([sport,p])=>'<div class="topline" style="padding:8px 0;border-bottom:1px solid #28364a"><span>'+esc(sport)+'</span><strong class="'+(p>=0?'positive':'negative')+'">'+money(p)+'</strong></div>').join(''):'<div class="empty">No graded bets in this selection.</div>';$('bets').innerHTML=rows.length?rows.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(b=>'<tr><td>'+esc(b.date)+'</td><td><strong>'+esc(b.selection)+'</strong><div class="sub">'+esc(b.event||b.sport)+'</div></td><td>'+esc(b.type)+'</td><td>'+esc(b.book)+'</td><td>'+esc(oddsText(b.odds))+'</td><td>'+money(b.stake)+'</td><td><span class="status">'+esc(b.status)+'</span></td><td class="'+(profit(b)>=0?'positive':'negative')+'">'+(settled(b)?money(profit(b)):'—')+'</td><td><div class="tags">'+b.tags.map(t=>'<span class="tag">'+esc(t)+'</span>').join('')+'</div></td><td><button class="btn small" data-action="edit" data-id="'+esc(b.id)+'">Edit</button> <button class="btn small win" data-action="Win" data-id="'+esc(b.id)+'">W</button> <button class="btn small loss" data-action="Loss" data-id="'+esc(b.id)+'">L</button> <button class="btn small" data-action="Push" data-id="'+esc(b.id)+'">P</button> <button class="btn small" data-action="delete" data-id="'+esc(b.id)+'">×</button></td></tr>').join(''):'<tr><td colspan="10" class="empty">No bets yet. Add your first bet above.</td></tr>';renderMobileHistory(rows)}
 function renderMobileHistory(rows){
- $('bets-mobile').innerHTML=rows.length?rows.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(b=>
- '<article class="bet-mobile-item"><div class="bet-mobile-head"><span class="sub">'+esc(b.date)+' · '+esc(b.book)+'</span><strong class="'+(b.status==='Win'?'positive':b.status==='Loss'?'negative':'')+'">'+esc(b.status)+'</strong></div>'+
- '<div style="margin-top:8px"><strong>'+esc(b.selection)+'</strong></div><div class="bet-mobile-sub">'+esc(b.event||b.sport)+' · '+esc(b.type)+'</div>'+
- '<div class="import-meta"><span>'+esc(oddsText(b.odds))+'</span><span>Stake '+money(b.stake)+'</span><span class="'+(profit(b)>=0?'positive':'negative')+'">'+(settled(b)?'P/L '+money(profit(b)):'Pending')+'</span></div>'+
- '<div class="tags" style="margin-top:8px">'+b.tags.map(t=>'<span class="tag">'+esc(t)+'</span>').join('')+'</div>'+
- '<div class="bet-mobile-actions"><button class="btn small" data-action="edit" data-id="'+esc(b.id)+'">Edit</button><button class="btn small win" data-action="Win" data-id="'+esc(b.id)+'">Win</button><button class="btn small loss" data-action="Loss" data-id="'+esc(b.id)+'">Loss</button><button class="btn small" data-action="Push" data-id="'+esc(b.id)+'">Push</button><button class="btn small" data-action="delete" data-id="'+esc(b.id)+'">Delete</button></div></article>').join(''):'<div class="empty">No bets match these filters.</div>';
+ const sorted=rows.slice().sort((a,b)=>b.date.localeCompare(a.date));
+ $('bets-mobile').innerHTML=sorted.length?sorted.map(b=>{
+  const isParlay=b.type==='Parlay'||/\\b(?:SGP|Parlay)\\b/i.test(b.selection);
+  const legs=isParlay?b.selection.replace(/^\\d+[- ]Leg\\s+(?:SGP|Parlay):?\\s*/i,'').split(/\\s+\\+\\s+(?=[A-Za-z])/):[];
+  const statusClass=b.status==='Win'?'win':b.status==='Loss'?'loss':'pending';
+  const p=profit(b);
+  const pnl=settled(b)?(p>0?'+':'')+money(p):'Open';
+  return '<article class="bet-mobile-item '+statusClass+'">'+
+   '<div class="bet-mobile-head"><span class="bet-book">'+esc(b.book)+'</span><span class="bet-status '+statusClass+'">'+esc(b.status)+'</span></div>'+
+   '<div class="bet-mobile-date">'+esc(b.date)+' · '+esc(b.sport)+(isParlay?' · '+esc(b.type):'')+'</div>'+
+   (isParlay&&legs.length>1?
+    '<div class="bet-mobile-title">'+esc(legs.length+'-leg '+(/SGP/i.test(b.selection)?'Same Game Parlay':'Parlay'))+'</div>'+
+    '<div class="bet-leg-list">'+legs.map((leg,i)=>'<div class="bet-leg"><span class="bet-leg-index">'+(i+1)+'</span><span>'+esc(leg.trim())+'</span></div>').join('')+'</div>':
+    '<div class="bet-mobile-title">'+esc(b.selection)+'</div>')+
+   '<div class="bet-mobile-event">'+esc(b.event||'')+'</div>'+
+   '<div class="bet-metrics"><div><small>Odds</small><strong>'+esc(oddsText(b.odds))+'</strong></div><div><small>Wager</small><strong>'+money(b.stake)+'</strong></div><div><small>'+(settled(b)?'Profit / Loss':'Exposure')+'</small><strong class="'+(settled(b)?p>=0?'positive':'negative':'')+'">'+(settled(b)?pnl:money(b.stake))+'</strong></div></div>'+
+   (b.tags.length?'<div class="tags">'+b.tags.map(t=>'<span class="tag">'+esc(t)+'</span>').join('')+'</div>':'')+
+   '<div class="bet-mobile-footer"><button class="btn small" data-action="edit" data-id="'+esc(b.id)+'">Edit bet</button><details class="bet-more"><summary>More actions</summary><div class="bet-more-menu"><button class="btn small win" data-action="Win" data-id="'+esc(b.id)+'">Win</button><button class="btn small loss" data-action="Loss" data-id="'+esc(b.id)+'">Loss</button><button class="btn small" data-action="Push" data-id="'+esc(b.id)+'">Push</button><button class="btn small" data-action="delete" data-id="'+esc(b.id)+'">Delete</button></div></details></div></article>';
+ }).join(''):'<div class="empty">No bets match these filters.</div>';
 }
 $('bets-mobile').onclick=e=>{const btn=e.target.closest('button[data-action]');if(!btn)return;const original=$('bets').querySelector('button[data-id="'+btn.dataset.id+'"][data-action="'+btn.dataset.action+'"]');if(original)original.click()};
 let editing=null;function openEditor(b){editing=b?.id||null;const f=$('betform');f.reset();f.elements.date.value=b?.date||new Date().toLocaleDateString('en-CA');for(const key of ['type','sport','book','selection','event','odds','stake','status','cashoutReturn','notes'])if(b&&b[key]!==undefined)f.elements[key].value=b[key];f.elements.tags.value=b?.tags?.join(', ')||'';$('editortitle').textContent=b?'Edit Bet & Tags':'Add Bet';$('editor').showModal()}
