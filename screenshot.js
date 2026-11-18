@@ -116,7 +116,8 @@
      if(cleanMarket&&!/^(?:over|under)\b/i.test(cleanMarket))extracted.selection=headingSelection+' — '+cleanMarket;
    }
    if(top.odds!==null)extracted.odds=top.odds;
-   if(extracted.book==='FanDuel'){
+   if(/fanduel/i.test([result.data.text||'',headingText,topText].join(' ')) || /\bus-va:[a-z0-9]+/i.test(result.data.text||'')){
+     extracted.book='FanDuel';
      const fullText=result.data.text||'';
      const allText=[fullText,headingText,topText].join('\n');
      const fdPick=allText.match(/\b(Over|Under)\s*(\d{1,3}[.,]\d)\s*(?:Shots)?/i);
@@ -137,15 +138,20 @@
          if(amounts.length>=2)candidates.push({stake:amounts[amounts.length-2],paid:amounts[amounts.length-1]});
        }
      }
-     const paired=candidates.find(p=>p.stake>0&&p.paid>=p.stake);
+     const paired=candidates.find(p=>p.stake>0&&p.paid>=0);
      const flat=allText.replace(/\s+/g,' ');
      const before=(label)=>{const m=flat.match(new RegExp('\\$\\s*([\\d,]+(?:\\.\\d{1,2})?)\\s*'+label,'i'));return m?Number(m[1].replaceAll(',','')):null};
      const wagerBefore=before('TOTAL\\s*WAGER');
      const wonBefore=before('WON\\s*ON\\s*FANDUEL');
      // Do not trust a generic stake extraction when the FanDuel two-column
      // layout is present; an incorrect stake is worse than an empty field.
-     extracted.stake=paired?.stake??(wagerBefore!==null&&wonBefore!==null&&wagerBefore!==wonBefore?wagerBefore:null);
-     const winnings=paired?.paid??wonBefore;
+     const allAmounts=[...allText.matchAll(/\$\s*([\d,]+(?:\.\d{1,2})?)/g)].map(m=>Number(m[1].replaceAll(',','')));
+     extracted.stake=paired?.stake??(wagerBefore>0?wagerBefore:null)??(allAmounts.length>=2&&allAmounts[0]>0?allAmounts[0]:null);
+     const winnings=paired?.paid??wonBefore??(allAmounts.length>=2?allAmounts[1]:null);
+     if(/\bRETURNED\b/i.test(allText)&&winnings===0&&extracted.stake>0)extracted.status='Loss';
+     if(/\bWON\s+ON\s+FANDUEL\b/i.test(allText)&&winnings!==null&&winnings>0)extracted.status='Win';
+     const playerMarket=allText.match(/([A-Z][a-z]+\s+[A-Z][a-z]+)\s+ROUND\s*(\d+)\s+SCORE/i);
+     if(playerMarket){extracted.selection=playerMarket[1]+' '+(fdPick?fdPick[1]+' '+fdPick[2]:'')+' — Round '+playerMarket[2]+' Score';extracted.sport='Golf';}
      extracted.cashoutReturn=extracted.status==='Win'?winnings:null;
      const dateMatch=allText.match(/\bplaced\s*[:;]?\s*(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(20\d{2})/i);
      if(dateMatch)extracted.date=dateMatch[3]+'-'+dateMatch[1].padStart(2,'0')+'-'+dateMatch[2].padStart(2,'0');
