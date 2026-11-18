@@ -12,14 +12,26 @@
  const parse=text=>{
    const lines=text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
    const full=lines.join(' ');
-   const book=/draftkings/i.test(full)?'DraftKings':/fanduel/i.test(full)?'FanDuel':/caesars/i.test(full)?'Caesars':/fanatics/i.test(full)?'Fanatics':/bet365/i.test(full)?'Bet365':null;
-   const moneyMatches=[...full.matchAll(/(?:stake|wager|risk|bet amount|amount wagered)\s*[:\-]?\s*\$?\s*([\d,]+(?:\.\d{1,2})?)/gi)];
-   const stake=moneyMatches.length?Number(moneyMatches[0][1].replaceAll(',','')):null;
-   const oddsMatches=[...full.matchAll(/(?:^|\s)([+−-]\s*\d{3,4})(?=\s|$|\))/g)];
-   const odds=oddsMatches.length?Number(oddsMatches[oddsMatches.length-1][1].replace(/[\s−]/g,c=>c==='−'?'-':'')):null;
-   const sport=/\b(golf|pga|dp world|liv)\b/i.test(full)?'Golf':/\b(nfl|football)\b/i.test(full)?'NFL':/\b(nba|basketball)\b/i.test(full)?'NBA':/\b(mlb|baseball)\b/i.test(full)?'MLB':null;
+   const book=/draftkings|\bDK\d{10,}\b/i.test(full)?'DraftKings':/fanduel/i.test(full)?'FanDuel':/caesars/i.test(full)?'Caesars':/fanatics/i.test(full)?'Fanatics':/bet365/i.test(full)?'Bet365':null;
+   const amountAfter=label=>{
+     const m=full.match(new RegExp(label+'\\s*[:;]?\\s*\\$?\\s*([\\d,]+(?:\\.\\d{1,2})?)','i'));
+     return m?Number(m[1].replaceAll(',','')):null;
+   };
+   const stake=amountAfter('(?:wager\\s*amount|stake|risk|bet\\s*amount|amount\\s*wagered)');
+   const payout=amountAfter('(?:total\\s*payout|potential\\s*payout|to\\s*return)');
+   const oddsMatches=[...full.matchAll(/(?:^|\s)([+−–-]\s*\d{3,4})(?=\s|$|\))/g)];
+   const odds=oddsMatches.length?Number(oddsMatches[0][1].replace(/[−–]/g,'-').replace(/\s/g,'')):null;
+   const sport=/\b(golf|pga|dp world|liv|winning score o\/u|rsm classic|masters|open championship)\b/i.test(full)?'Golf':/\b(nfl|football)\b/i.test(full)?'NFL':/\b(nba|basketball)\b/i.test(full)?'NBA':/\b(mlb|baseball)\b/i.test(full)?'MLB':null;
    const candidate=lines.find(l=>/\b(over|under|moneyline|spread|to win|round score|birdies|bogeys)\b/i.test(l)&&l.length>5);
-   return {book,stake,odds,sport,selection:candidate||null,raw:text};
+   const selection=candidate?candidate.replace(/\s*[+−–-]\s*\d{3,4}\s*$/,'').trim():null;
+   const market=lines.find(l=>/winning score o\/u|round score|birdies or better|bogey|moneyline|spread/i.test(l));
+   const eventLine=lines.find(l=>/\b(?:classic|championship|open|masters|invitational|tournament)\b/i.test(l)&&!/^receipt/i.test(l));
+   const event=eventLine?eventLine.replace(/\s*[•·]\s*(?:mon|tue|wed|thu|fri|sat|sun)\b.*$/i,'').trim():null;
+   const placed=full.match(/\b([A-Z][a-z]{2})\s+(\d{1,2}),?\s+(20\d{2})\b/);
+   const monthMap={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+   const date=placed&&monthMap[placed[1]]?placed[3]+'-'+String(monthMap[placed[1]]).padStart(2,'0')+'-'+placed[2].padStart(2,'0'):null;
+   const notes=[market?'Market: '+market:null,payout!==null?'Potential payout: $'+payout.toFixed(2):null,'Screenshot OCR (verify all values):',text.slice(0,1800)].filter(Boolean).join('\n');
+   return {book,stake,odds,sport,selection,event,date,notes,raw:text};
  };
  button.addEventListener('click',()=>fileInput.click());
  document.getElementById('scan-cancel').addEventListener('click',()=>{panel.hidden=true;fileInput.value=''});
@@ -40,7 +52,7 @@
     const input=form.elements.namedItem(key);
     if(input&&(!input.options||[...input.options].some(o=>o.value===String(val))))input.value=String(val);
    }
-   form.elements.notes.value='Screenshot OCR (verify every field):\n'+extracted.raw.slice(0,2400);
+   form.elements.notes.value=extracted.notes;
    setStatus('Text recognized. Review all fields in the Add Bet form; missing fields must be entered manually. The screenshot is not stored.');
   }catch(err){setStatus('Could not scan screenshot: '+err.message+'. You can still enter the bet manually.')}
   finally{fileInput.value=''}
