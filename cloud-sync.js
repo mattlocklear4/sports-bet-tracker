@@ -16,9 +16,9 @@ async function getRemote(){
  for(const link of links){if(!bt.has(link.bet_id))bt.set(link.bet_id,[]);const name=names.get(link.tag_id);if(name)bt.get(link.bet_id).push(name)}
  return bs.map(b=>mapFromDb(b,bt.get(b.id)||[]));
 }
-async function uploadLocal(){
+async function uploadLocal(changedIds=null){
  if(!cloudUser)throw Error('Sign in first');
- const local=bets.slice();
+ const local=changedIds?bets.filter(b=>changedIds.has(b.id)):bets.slice();
  if(!local.length){cloudMessage('No local bets to upload');return}
  const {error:e}=await supa.from('bets').upsert(local.map(mapToDb),{onConflict:'id'});if(e)throw e;
  const allNames=[...new Set(local.flatMap(b=>b.tags||[]))];
@@ -56,9 +56,56 @@ document.getElementById('cloud-download').onclick=async()=>{
  if(!confirm('Merge Supabase bets into this browser? Cloud versions replace matching local bet IDs. Cloud-only bets are added. Make a JSON backup first if you want an extra safety copy.'))return;
  try{cloudMessage('Downloading...');const remote=await getRemote();const byId=new Map(bets.map(b=>[b.id,b]));remote.forEach(b=>byId.set(b.id,b));const old=bets;bets=[...byId.values()];if(!save()){bets=old;throw Error('Local storage save failed')}render();cloudMessage('Merged '+remote.length+' cloud bets into this browser')}catch(e){cloudMessage('Download failed: '+e.message)}
 };
-// Upload after manual additions, edits, and grading. Cloud deletions are not yet implemented.
-let autoSyncTimer=null;
-function queueAutoUpload(){if(!cloudUser)return;clearTimeout(autoSyncTimer);autoSyncTimer=setTimeout(async()=>{try{cloudMessage('Syncing changes...');await uploadLocal()}catch(e){cloudMessage('Auto-sync failed: '+e.message)}},1200)}
-window.addEventListener('tracker:local-saved',queueAutoUpload);
-supa.auth.onAuthStateChange(()=>{setTimeout(refreshAuth,0)});
-refreshAuth();
+// Automatic bidirectional sync. Only upload changed records to avoid overwriting
+// newer edits made on another device. Cloud remains authoritative for existing IDs
+// when this device first signs in.
+let baseline=new Map(bets.map(b=>[b.id,JSON.stringify(b)]));
+let dirty=new Set(),syncTimer=null,syncBusy=false,syncReady=false,activeUserId=null;
+let lastRefresh=0;
+const setBaseline=()=>{baseline=new Map(bets.map(b=>[b.id,JSON.stringify(b)]))};
+function recordLocalChanges(){
+ for(const b of bets)if(baseline.get(b.id)!==JSON.stringify(b))dirty.add(b.id);
+ scheduleSync();
+}
+function scheduleSync(delay=900){if(!cloudUser||!syncReady)return;clearTimeout(syncTimer);syncTimer=setTimeout(()=>syncCycle().catch(e=>cloudMessage('Sync failed: '+e.message)),delay)}
+async function pullCloud(){
+ if(!cloudUser)return;
+ const remote=await getRemote(),merged=new Map(bets.map(b=>[b.id,b]));
+ for(const b of remote)if(!dirty.has(b.id))merged.set(b.id,b);
+ const old=bets;bets=[...merged.values()];
+ setBaseline();if(!save()){bets=old;throw Error('Could not save downloaded bets')}
+ render();setBaseline();lastRefresh=Date.now();
+ cloudMessage('Cloud synced · '+remote.length+' cloud bets');
+}
+async function syncCycle(forcePull=false){
+ if(!cloudUser||syncBusy||!syncReady)return;
+ syncBusy=true;
+ try{
+  if(dirty.size){
+   const sending=new Set(dirty);cloudMessage('Saving changes to cloud...');
+   await uploadLocal(sending);
+   for(const id of sending)dirty.delete(id);
+  }
+  if(forcePull||Date.now()-lastRefresh>12000)await pullCloud();
+ }finally{syncBusy=false;if(dirty.size)scheduleSync(1500)}
+}
+async function initializeCloud(){
+ if(!cloudUser)return;
+ const id=cloudUser.id;
+ if(activeUserId!==id){activeUserId=id;syncReady=false;dirty.clear();setBaseline()}
+ try{
+  cloudMessage('Loading cloud bets...');
+  const remote=await getRemote(),merged=new Map(bets.map(b=>[b.id,b]));
+  for(const b of remote)merged.set(b.id,b);
+  const old=bets;bets=[...merged.values()];
+  setBaseline();if(!save()){bets=old;throw Error('Could not save cloud data locally')}
+  render();setBaseline();lastRefresh=Date.now();syncReady=true;
+  cloudMessage('Cloud synced · '+remote.length+' cloud bets');
+ }catch(e){cloudMessage('Cloud load failed: '+e.message);syncReady=true}
+}
+window.addEventListener('tracker:local-saved',recordLocalChanges);
+supa.auth.onAuthStateChange(()=>{setTimeout(async()=>{await refreshAuth();if(cloudUser){if(!syncReady||activeUserId!==cloudUser.id)await initializeCloud();else scheduleSync(100)}else{syncReady=false;activeUserId=null;dirty.clear()}},0)});
+(async()=>{await refreshAuth();if(cloudUser)await initializeCloud()})();
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)scheduleSync(100)});
+window.addEventListener('focus',()=>scheduleSync(100));
+setInterval(()=>{if(!document.hidden)scheduleSync(100)},20000);
