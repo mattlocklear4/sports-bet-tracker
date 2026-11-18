@@ -214,7 +214,7 @@ document.addEventListener('click',e=>{for(const id of ['sportfilter','bookfilter
 for(const id of ['sportfilter','bookfilter','tagfilter'])$(id).addEventListener('toggle',()=>{if($(id).open)for(const other of ['sportfilter','bookfilter','tagfilter'])if(other!==id)$(other).open=false});
 function chart(rows){if(!rows.length)return '<div class="empty">Grade some bets to see your profit trend.</div>';let running=0;const points=rows.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(b=>({date:b.date,y:running+=profit(b)}));const vals=[0,...points.map(p=>p.y)],lo=Math.min(...vals),hi=Math.max(...vals),range=hi-lo||1;const coords=[{x:10,y:155},...points.map((p,i)=>({x:10+(i+1)*570/points.length,y:155-(p.y-lo)/range*130}))];const path=coords.map((p,i)=>(i?'L':'M')+p.x.toFixed(1)+' '+p.y.toFixed(1)).join(' ');return '<svg viewBox="0 0 600 180" class="chart" role="img" aria-label="Cumulative profit and loss line chart"><line x1="10" y1="'+(155-(0-lo)/range*130)+'" x2="580" y2="'+(155-(0-lo)/range*130)+'" stroke="#55677e" stroke-dasharray="4 4"/><path d="'+path+'" fill="none" stroke="#63b4ff" stroke-width="3"/><text x="10" y="175" fill="#a9bcd2" font-size="13">'+esc(points[0].date)+'</text><text x="480" y="175" fill="#a9bcd2" font-size="13">'+esc(points.at(-1).date)+'</text><text x="10" y="15" fill="#a9bcd2" font-size="13">'+esc(money(hi))+'</text></svg>'}
 function renderToday(){
- const today=new Date().toLocaleDateString('en-CA');
+ const now=new Date();const today=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');
  const pending=bets.filter(b=>b.status==='Pending');
  const placedToday=bets.filter(b=>b.date===today);
  const gradedToday=placedToday.filter(settled);
