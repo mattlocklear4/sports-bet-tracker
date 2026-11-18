@@ -9,6 +9,25 @@
    script.onload=()=>window.Tesseract?resolve(window.Tesseract):reject(Error('OCR unavailable'));
    script.onerror=()=>reject(Error('Could not load the text recognition library'));document.head.appendChild(script);
  });
+ const readTop=async(file,worker)=>{
+   const bitmap=await createImageBitmap(file);
+   try{
+     const h=Math.max(1,Math.floor(bitmap.height*.30));
+     const scale=2,canvas=document.createElement('canvas');
+     canvas.width=bitmap.width*scale;canvas.height=h*scale;
+     const ctx=canvas.getContext('2d',{willReadFrequently:true});
+     ctx.drawImage(bitmap,0,0,bitmap.width,h,0,0,canvas.width,canvas.height);
+     const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
+     for(let i=0;i<pixels.data.length;i+=4){
+       const v=.2126*pixels.data[i]+.7152*pixels.data[i+1]+.0722*pixels.data[i+2];
+       const bright=v>105?255:0;
+       pixels.data[i]=pixels.data[i+1]=pixels.data[i+2]=bright;
+     }
+     ctx.putImageData(pixels,0,0);
+     const result=await worker.recognize(canvas);
+     return result.data.text||'';
+   }finally{bitmap.close()}
+ };
  const parse=text=>{
    const lines=text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
    const full=lines.join(' ');
@@ -45,8 +64,21 @@
   try{
    setStatus('Reading screenshot locally... This can take 10–30 seconds on a phone.');
    const T=await loadOCR();const worker=await T.createWorker('eng');
-   let result;try{result=await worker.recognize(file)}finally{await worker.terminate()}
+   let result;try{result=await worker.recognize(file)}catch(e){await worker.terminate();throw e}
+   let topText='';
+   try{setStatus('Checking selection and odds with enhanced recognition...');topText=await readTop(file,worker)}catch(e){console.warn('Enhanced OCR unavailable',e)}
    const extracted=parse(result.data.text||'');
+   const top=parse(topText);
+   const topPick=topText.match(/\\b(over|under)\\s*(\\d{1,3}(?:[.,]\\d+)?)\\b/i);
+   if(topPick){
+     let n=topPick[2].replace(',','.');
+     if(/^\\d{3}$/.test(n)&&Number(n)>=600&&Number(n)<=899)n=n.slice(0,2)+'.'+n.slice(2);
+     extracted.selection=topPick[1][0].toUpperCase()+topPick[1].slice(1).toLowerCase()+' '+n;
+   }else if(/^\\s*(Over|Under)\\s+\\d{3}\\s*$/i.test(extracted.selection||'')){
+     extracted.selection=extracted.selection.replace(/(\\d{2})(\\d)\\s*$/,'$1.$2');
+   }
+   if(top.odds!==null)extracted.odds=top.odds;
+   extracted.notes+='\\nEnhanced top OCR: '+topText.slice(0,500);
    if(!extracted.raw.trim()){setStatus('No text recognized. Try a clearer screenshot or use Add Bet.');return}
    document.getElementById('add').click();
    const form=document.getElementById('betform');
