@@ -56,5 +56,9 @@ document.getElementById('cloud-download').onclick=async()=>{
  if(!confirm('Merge Supabase bets into this browser? Cloud versions replace matching local bet IDs. Cloud-only bets are added. Make a JSON backup first if you want an extra safety copy.'))return;
  try{cloudMessage('Downloading...');const remote=await getRemote();const byId=new Map(bets.map(b=>[b.id,b]));remote.forEach(b=>byId.set(b.id,b));const old=bets;bets=[...byId.values()];if(!save()){bets=old;throw Error('Local storage save failed')}render();cloudMessage('Merged '+remote.length+' cloud bets into this browser')}catch(e){cloudMessage('Download failed: '+e.message)}
 };
+// Debounced upload after local saves. Deletions remain local until cloud deletion support is added.
+let autoSyncTimer=null;
+const originalSave=save;
+save=()=>{const ok=originalSave();if(ok&&cloudUser){clearTimeout(autoSyncTimer);autoSyncTimer=setTimeout(async()=>{try{cloudMessage('Syncing changes...');await uploadLocal()}catch(e){cloudMessage('Auto-sync failed: '+e.message)}},900)}return ok};
 supa.auth.onAuthStateChange(()=>{setTimeout(refreshAuth,0)});
 refreshAuth();
