@@ -86,7 +86,7 @@
    const headingSources=[result.data.text||'',headingText,topText];
    const parseHeading=raw=>{
      for(const line of raw.split(/\r?\n/)){
-       const match=line.match(/\b(over|under|0ver|0nder)\s*([0-9ilzo]{1,3})\s*([.,sS5])\s*([0-9])?\b?/i)
+       const match=line.match(/\b(over|under|0ver|0nder)\s*([0-9ilzo]{1,3})\s*([.,sS5])\s*([0-9])?(?=\s|[|¦•·+−–-]|$)/i)
          ||line.match(/\b(over|under|0ver|0nder)\s*([0-9ilzo]{2,3})([sS5])(?=\s|[|¦•·+−–-]|$)/i);
        if(!match)continue;
        const side=/^(?:over|0ver)/i.test(match[1])?'Over':'Under';
