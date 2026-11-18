@@ -35,6 +35,7 @@ async function uploadLocal(){
 }
 async function refreshAuth(){
  const {data:{user},error}=await supa.auth.getUser();cloudUser=error?null:user;
+ document.body.classList.toggle('auth-locked',!cloudUser);
  document.getElementById('cloud-login').hidden=!!cloudUser;
  document.getElementById('cloud-logout').hidden=!cloudUser;
  document.getElementById('cloud-upload').disabled=!cloudUser;
