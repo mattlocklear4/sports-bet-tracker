@@ -35,7 +35,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const oddsText=n=>Number(n)>0?'+'+n:String(n);
 const profit=b=>b.status==='Win'?b.stake*(b.odds>0?b.odds/100:100/Math.abs(b.odds)):b.status==='Loss'?-b.stake:b.status==='Cashout'?Number(b.cashoutReturn||0)-b.stake:0;
 const settled=b=>b.status!=='Pending';
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(bets));return true}catch(e){alert('Unable to save: browser storage may be full. Export a backup.');return false}};
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(bets));window.dispatchEvent(new Event('tracker:local-saved'));return true}catch(e){alert('Unable to save: browser storage may be full. Export a backup.');return false}};
 const unique=arr=>[...new Set(arr.filter(Boolean))].sort((a,b)=>a.localeCompare(b));
 const option=(v,label)=>'<option value="'+esc(v)+'">'+esc(label||v)+'</option>';
 const download=(name,text,type)=>{const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
