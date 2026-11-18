@@ -53,8 +53,8 @@ document.getElementById('cloud-upload').onclick=async()=>{
  try{cloudMessage('Uploading...');await uploadLocal()}catch(e){cloudMessage('Upload failed: '+e.message)}
 };
 document.getElementById('cloud-download').onclick=async()=>{
- if(!confirm('Merge Supabase bets into this browser? Cloud versions replace matching local bet IDs. Cloud-only bets are added. Make a JSON backup first if you want an extra safety copy.'))return;
- try{cloudMessage('Downloading...');const remote=await getRemote();const byId=new Map(bets.map(b=>[b.id,b]));remote.forEach(b=>byId.set(b.id,b));const old=bets;bets=[...byId.values()];if(!save()){bets=old;throw Error('Local storage save failed')}render();cloudMessage('Merged '+remote.length+' cloud bets into this browser')}catch(e){cloudMessage('Download failed: '+e.message)}
+ if(!confirm('Reload from Supabase? The cloud copy will replace this browser’s local list. Back up any unsynced bets first.'))return;
+ try{cloudMessage('Downloading...');const remote=await getRemote();const byId=new Map(remote.map(b=>[b.id,b]));const old=bets;bets=[...byId.values()];setBaseline();if(!save()){bets=old;throw Error('Local storage save failed')}render();cloudMessage('Loaded '+remote.length+' cloud bets into this browser')}catch(e){cloudMessage('Download failed: '+e.message)}
 };
 // Automatic bidirectional sync. Only upload changed records to avoid overwriting
 // newer edits made on another device. Cloud remains authoritative for existing IDs
