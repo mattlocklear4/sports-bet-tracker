@@ -166,7 +166,7 @@ const $=id=>document.getElementById(id);
 const money=n=>(n<0?'−':'')+'$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const oddsText=n=>Number(n)>0?'+'+n:String(n);
-const profit=b=>b.status==='Win'?(Number(b.cashoutReturn)>0?Number(b.cashoutReturn)-b.stake:b.stake*(b.odds>0?b.odds/100:100/Math.abs(b.odds))):b.status==='Loss'?-b.stake:b.status==='Cashout'?Number(b.cashoutReturn||0)-b.stake:0;
+const profit=b=>{const raw=b.status==='Win'?(Number(b.cashoutReturn)>0?Number(b.cashoutReturn)-b.stake:b.stake*(b.odds>0?b.odds/100:100/Math.abs(b.odds))):b.status==='Loss'?-b.stake:b.status==='Cashout'?Number(b.cashoutReturn||0)-b.stake:0;return Math.round((raw+Number.EPSILON)*100)/100;};
 const settled=b=>b.status!=='Pending';
 const reportDate=b=>b.gameDate||b.date;
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(bets));window.dispatchEvent(new Event('tracker:local-saved'));return true}catch(e){alert('Unable to save: browser storage may be full. Export a backup.');return false}};
