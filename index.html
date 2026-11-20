@@ -237,12 +237,13 @@ function chart(rows){if(!rows.length)return '<div class="empty">Grade some bets 
 function renderToday(){
  const now=new Date();const today=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');
  const pending=bets.filter(b=>b.status==='Pending');
+ const pendingToday=pending.filter(b=>reportDate(b)===today);
  const placedToday=bets.filter(b=>reportDate(b)===today);
  const gradedToday=placedToday.filter(settled);
  const stake=gradedToday.reduce((sum,b)=>sum+b.stake,0);
  const pnl=gradedToday.reduce((sum,b)=>sum+profit(b),0);
  $('today-date').textContent=new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
- const metrics=[["P/L · today's games",money(pnl),pnl>=0?'positive':'negative'],["ROI · today's games",stake?(100*pnl/stake).toFixed(1)+'%':'—',''],["Pending exposure",money(pending.reduce((sum,b)=>sum+b.stake,0)),''],["Open bets",String(pending.length),'']];
+ const metrics=[["P/L · today's games",money(pnl),pnl>=0?'positive':'negative'],["ROI · today's games",stake?(100*pnl/stake).toFixed(1)+'%':'—',''],["Pending exposure · Today",money(pendingToday.reduce((sum,b)=>sum+b.stake,0)),''],["Pending exposure · Overall",money(pending.reduce((sum,b)=>sum+b.stake,0)),''],["Open bets",String(pending.length),'']];
  $('today-stats').innerHTML=metrics.map(m=>'<div class="card"><div class="muted">'+m[0]+'</div><div class="num '+m[2]+'">'+m[1]+'</div></div>').join('');
  $('today-count').textContent=pending.length+' open';
  const sports=unique(pending.map(b=>b.sport||'Other'));
